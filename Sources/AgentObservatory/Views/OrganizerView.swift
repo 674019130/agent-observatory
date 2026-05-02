@@ -44,18 +44,32 @@ private struct OrganizerHeader: View {
             }
 
             HStack(spacing: 10) {
-                if store.isOrganizing {
+                if store.isOrganizing || store.isBuildingOrganizationMap {
                     ProgressView()
                         .controlSize(.small)
                 }
-                Text(store.organizerStatus ?? store.t(.manualOnlyNotice))
+                Text(statusText)
                     .font(.callout)
-                    .foregroundStyle(store.isOrganizing ? .primary : .secondary)
+                    .foregroundStyle(store.isOrganizing || store.isBuildingOrganizationMap ? .primary : .secondary)
                     .lineLimit(2)
                 Spacer()
                 BadgeView(text: store.t(.humanReviewRequired), tint: .orange)
             }
+
+            if let date = store.lastOrganizationMapDate {
+                Text("\(store.t(.updated)) \(date.formatted(date: .omitted, time: .standard))")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
         }
+    }
+
+    private var statusText: String {
+        if store.isBuildingOrganizationMap {
+            return store.scanProgress.map { L10n.scanProgressMessage($0, language: store.appLanguage) }
+                ?? store.t(.scanningForOrganizationMap)
+        }
+        return store.organizerStatus ?? store.t(.manualOnlyNotice)
     }
 }
 
@@ -83,7 +97,7 @@ private struct OrganizerActionButtons: View {
             Label(store.t(.buildMap), systemImage: "map")
         }
         .buttonStyle(.bordered)
-        .disabled(store.isOrganizing)
+        .disabled(store.isOrganizing || store.isBuildingOrganizationMap)
 
         Button {
             store.generateOrganizationRecommendations(useAI: false)
@@ -91,7 +105,7 @@ private struct OrganizerActionButtons: View {
             Label(store.t(.localPlan), systemImage: "list.clipboard")
         }
         .buttonStyle(.bordered)
-        .disabled(store.isOrganizing)
+        .disabled(store.isOrganizing || store.isBuildingOrganizationMap)
 
         Button {
             store.generateOrganizationRecommendations(useAI: true)
@@ -99,7 +113,7 @@ private struct OrganizerActionButtons: View {
             Label(store.t(.askAIForPlan), systemImage: "sparkles")
         }
         .buttonStyle(.borderedProminent)
-        .disabled(store.isOrganizing)
+        .disabled(store.isOrganizing || store.isBuildingOrganizationMap)
     }
 }
 
@@ -175,7 +189,10 @@ private struct OrganizerMapSection: View {
                 .font(.headline)
 
             if store.organizationMap.totalAssets == 0 {
-                EmptyOrganizerRow(text: store.t(.noOrganizationMap), systemImage: "map")
+                EmptyOrganizerRow(
+                    text: store.lastOrganizationMapDate == nil ? store.t(.noOrganizationMap) : store.t(.noAssetsIndexed),
+                    systemImage: "map"
+                )
             } else {
                 OrganizerAudienceStrip()
                 OrganizerKindStrip()

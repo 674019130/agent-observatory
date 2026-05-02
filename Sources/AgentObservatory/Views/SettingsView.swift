@@ -260,6 +260,10 @@ private struct OpenAISettingsPane: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
+                if let error = store.aiErrors["settings"] {
+                    ManagementErrorBanner(message: error)
+                }
+
                 VStack(alignment: .leading, spacing: 8) {
                     Text(store.t(.apiKey))
                         .font(.caption.weight(.semibold))
@@ -275,6 +279,23 @@ private struct OpenAISettingsPane: View {
                     TextField(store.t(.model), text: $store.openAIModel)
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: 320)
+                    Text(store.t(.modelDescription))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(store.t(.baseURL))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    TextField(OpenAIConfiguration.defaultBaseURL, text: $store.openAIBaseURL)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 420)
+                    Text(store.t(.openAIBaseURLDescription))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 HStack {

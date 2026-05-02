@@ -4,6 +4,7 @@ public enum OpenAIEnricherError: LocalizedError, Sendable {
     case missingAPIKey
     case invalidResponse
     case requestFailed(String)
+    case invalidBaseURL(String)
 
     public var errorDescription: String? {
         switch self {
@@ -13,21 +14,33 @@ public enum OpenAIEnricherError: LocalizedError, Sendable {
             "OpenAI returned a response the app could not read."
         case .requestFailed(let message):
             message
+        case .invalidBaseURL(let value):
+            "Invalid OpenAI base URL: \(value)"
         }
     }
 }
 
 public struct OpenAIEnricher: Sendable {
     private let session: URLSession
-    private let endpoint = URL(string: "https://api.openai.com/v1/responses")!
 
     public init(session: URLSession = .shared) {
         self.session = session
     }
 
-    public func summarize(asset: AgentAsset, apiKey: String, model: String) async throws -> String {
+    public func summarize(
+        asset: AgentAsset,
+        apiKey: String,
+        model: String,
+        baseURL: String = OpenAIConfiguration.defaultBaseURL
+    ) async throws -> String {
         let trimmedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedKey.isEmpty else { throw OpenAIEnricherError.missingAPIKey }
+        let endpoint: URL
+        do {
+            endpoint = try OpenAIConfiguration.responsesEndpoint(baseURL: baseURL)
+        } catch {
+            throw OpenAIEnricherError.invalidBaseURL(baseURL)
+        }
 
         let input = prompt(for: asset)
         let payload: [String: Any] = [

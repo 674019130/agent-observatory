@@ -2,7 +2,6 @@ import Foundation
 
 public struct OpenAIOrganizer: Sendable {
     private let session: URLSession
-    private let endpoint = URL(string: "https://api.openai.com/v1/responses")!
 
     public init(session: URLSession = .shared) {
         self.session = session
@@ -12,10 +11,17 @@ public struct OpenAIOrganizer: Sendable {
         map: OrganizationMap,
         assets: [AgentAsset],
         apiKey: String,
-        model: String
+        model: String,
+        baseURL: String = OpenAIConfiguration.defaultBaseURL
     ) async throws -> OrganizationPlan {
         let trimmedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedKey.isEmpty else { throw OpenAIEnricherError.missingAPIKey }
+        let endpoint: URL
+        do {
+            endpoint = try OpenAIConfiguration.responsesEndpoint(baseURL: baseURL)
+        } catch {
+            throw OpenAIEnricherError.invalidBaseURL(baseURL)
+        }
 
         let payload: [String: Any] = [
             "model": model,

@@ -26,6 +26,9 @@ public enum L10n {
         case openAIDescription
         case apiKey
         case model
+        case modelDescription
+        case baseURL
+        case openAIBaseURLDescription
         case save
         case management
         case archiveLocation
@@ -56,6 +59,10 @@ public enum L10n {
         case organizationPlan
         case organizing
         case mapReady
+        case mapUsesCurrentIndex
+        case mapReadyWithCounts
+        case scanningForOrganizationMap
+        case scanCancelledForMap
         case localPlanReady
         case aiPlanReady
         case aiPlanFailedUsingLocal
@@ -401,6 +408,9 @@ public enum L10n {
         .openAIDescription: [.english: "The app sends only redacted file previews for per-file explanations. Sensitive files such as auth.json are never previewed.", .simplifiedChinese: "应用只会发送经过脱敏的文件预览用于逐文件解释。auth.json 等敏感文件永远不会被预览。"],
         .apiKey: [.english: "API key", .simplifiedChinese: "API key"],
         .model: [.english: "Model", .simplifiedChinese: "模型"],
+        .modelDescription: [.english: "Default model is gpt-4.1. You can type any OpenAI model name your account can use.", .simplifiedChinese: "默认模型为 gpt-4.1。你也可以输入当前账号可用的任意 OpenAI 模型名。"],
+        .baseURL: [.english: "Base URL", .simplifiedChinese: "Base URL"],
+        .openAIBaseURLDescription: [.english: "Use https://api.openai.com/v1 for OpenAI. The app appends /responses automatically.", .simplifiedChinese: "OpenAI 默认使用 https://api.openai.com/v1。应用会自动拼接 /responses。"],
         .save: [.english: "Save", .simplifiedChinese: "保存"],
         .management: [.english: "Management", .simplifiedChinese: "管理"],
         .archiveLocation: [.english: "Archive Location", .simplifiedChinese: "归档位置"],
@@ -431,6 +441,10 @@ public enum L10n {
         .organizationPlan: [.english: "Organization Plan", .simplifiedChinese: "整理计划"],
         .organizing: [.english: "Asking AI for an organization plan", .simplifiedChinese: "正在让 AI 生成整理计划"],
         .mapReady: [.english: "Map ready", .simplifiedChinese: "地图已生成"],
+        .mapUsesCurrentIndex: [.english: "Map uses the current index. Click Build Map to scan first when the index is empty or stale.", .simplifiedChinese: "地图基于当前索引生成。如果索引为空或过期，点击“生成地图”会先扫描再生成。"],
+        .mapReadyWithCounts: [.english: "Map ready: %d assets in %d buckets.", .simplifiedChinese: "地图已生成：%d 个资产，%d 个分组。"],
+        .scanningForOrganizationMap: [.english: "Scanning enabled sources before building the map.", .simplifiedChinese: "正在先扫描启用来源，然后生成地图。"],
+        .scanCancelledForMap: [.english: "Map build cancelled with the scan.", .simplifiedChinese: "扫描已取消，地图生成也已取消。"],
         .localPlanReady: [.english: "Local plan ready", .simplifiedChinese: "本地计划已生成"],
         .aiPlanReady: [.english: "AI plan ready", .simplifiedChinese: "AI 计划已生成"],
         .aiPlanFailedUsingLocal: [.english: "AI plan failed. Showing the local plan instead.", .simplifiedChinese: "AI 计划失败，已显示本地计划。"],

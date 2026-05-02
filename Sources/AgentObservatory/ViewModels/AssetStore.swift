@@ -16,6 +16,8 @@ final class AssetStore: ObservableObject {
     @Published private(set) var dashboardSummary: DashboardSummary = .empty
     @Published private(set) var organizationMap: OrganizationMap = .empty
     @Published private(set) var organizationPlan: OrganizationPlan = .empty
+    @Published private(set) var lastOrganizationMapDate: Date?
+    @Published private(set) var isBuildingOrganizationMap = false
     @Published private(set) var isOrganizing = false
     @Published private(set) var organizerStatus: String?
     @Published var managementError: String?
@@ -32,12 +34,16 @@ final class AssetStore: ObservableObject {
     @Published var aiErrors: [String: String] = [:]
     @Published var enrichingAssetID: AgentAsset.ID?
     @Published var appLanguage = AppLanguage.fromStoredValue(UserDefaults.standard.string(forKey: "appLanguage"))
-    @Published var openAIModel = UserDefaults.standard.string(forKey: "openAIModel") ?? "gpt-4.1-mini"
+    @Published var openAIModel = UserDefaults.standard.string(forKey: "openAIModel") ?? OpenAIConfiguration.defaultModel
+    @Published var openAIBaseURL = UserDefaults.standard.string(forKey: "openAIBaseURL")
+        ?? ProcessInfo.processInfo.environment["OPENAI_BASE_URL"]
+        ?? OpenAIConfiguration.defaultBaseURL
     @Published var openAIKey = APIKeyStore.shared.loadOpenAIKey()
 
     private static let scanSourcesDefaultsKey = "scanSources.v2"
     private static let managementStateDefaultsKey = "assetManagementState.v1"
     private static let appLanguageDefaultsKey = "appLanguage"
+    private static let openAIBaseURLDefaultsKey = "openAIBaseURL"
 
     private let scanner: FileSystemAssetScanner
     private let archiveService: AssetArchiveService
@@ -50,6 +56,7 @@ final class AssetStore: ObservableObject {
     private var cancellationToken: ScanCancellationToken?
     private var enrichmentTask: Task<Void, Never>?
     private var organizerTask: Task<Void, Never>?
+    private var pendingOrganizationMapAfterScan = false
     private var lastSnapshot: ScanSnapshot?
 
     init(
@@ -156,7 +163,10 @@ final class AssetStore: ObservableObject {
     func showOrganizer() {
         selectedSection = .organizer
         selectedAssetID = nil
-        buildOrganizationMap()
+        rebuildOrganizationMap()
+        if lastOrganizationMapDate == nil {
+            organizerStatus = t(.mapUsesCurrentIndex)
+        }
     }
 
     func showAssets() {
@@ -207,6 +217,11 @@ final class AssetStore: ObservableObject {
                 self.cancellationToken = nil
 
                 if token.isCancelled {
+                    if self.pendingOrganizationMapAfterScan {
+                        self.pendingOrganizationMapAfterScan = false
+                        self.isBuildingOrganizationMap = false
+                        self.organizerStatus = self.t(.scanCancelledForMap)
+                    }
                     self.isScanning = false
                     self.scanProgress = ScanProgress(
                         phase: .cancelled,
@@ -248,6 +263,9 @@ final class AssetStore: ObservableObject {
                     message: "Scan completed"
                 )
                 self.rebuildDashboardSummary()
+                if self.pendingOrganizationMapAfterScan {
+                    self.finishOrganizationMapBuild()
+                }
 
                 if let previousSelectedPath,
                    let preserved = visibleScanned.first(where: { $0.path == previousSelectedPath }) {
@@ -263,6 +281,11 @@ final class AssetStore: ObservableObject {
     func cancelScan() {
         guard isScanning else { return }
         cancellationToken?.cancel()
+        if pendingOrganizationMapAfterScan {
+            pendingOrganizationMapAfterScan = false
+            isBuildingOrganizationMap = false
+            organizerStatus = t(.scanCancelledForMap)
+        }
         isScanning = false
         scanProgress = ScanProgress(
             phase: .cancelled,
@@ -404,16 +427,24 @@ final class AssetStore: ObservableObject {
         activeOrganizerID = nil
         isOrganizing = false
         organizerError = nil
-        rebuildOrganizationMap()
-        organizationPlan = OrganizationPlan(
-            map: organizationMap,
-            recommendations: organizationPlan.recommendations.filter { recommendation in
-                visibleAssets.contains { $0.path == recommendation.primaryAssetPath }
-            },
-            source: organizationPlan.source
-        )
-        pruneOrganizationApprovals()
-        organizerStatus = "\(organizationMap.totalAssets) \(t(.assets)) • \(organizationMap.buckets.count) \(t(.buckets))"
+
+        switch OrganizationMapBuildPlanner().decision(
+            assetCount: visibleAssets.count,
+            isIndexStale: isIndexStale,
+            isScanning: isScanning
+        ) {
+        case .buildCurrentIndex:
+            finishOrganizationMapBuild()
+        case .scanThenBuild:
+            pendingOrganizationMapAfterScan = true
+            isBuildingOrganizationMap = true
+            organizerStatus = t(.scanningForOrganizationMap)
+            scan()
+        case .waitForScan:
+            pendingOrganizationMapAfterScan = true
+            isBuildingOrganizationMap = true
+            organizerStatus = t(.scanningForOrganizationMap)
+        }
     }
 
     func generateOrganizationRecommendations(useAI: Bool = true) {
@@ -448,13 +479,14 @@ final class AssetStore: ObservableObject {
             return
         }
 
-        let model = openAIModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "gpt-4.1-mini" : openAIModel
+        let model = OpenAIConfiguration.normalizedModel(openAIModel)
+        let baseURL = OpenAIConfiguration.normalizedBaseURL(openAIBaseURL)
         let requestID = UUID()
         activeOrganizerID = requestID
         isOrganizing = true
         organizerStatus = t(.organizing)
 
-        organizerTask = Task { [weak self, organizer, map, activeAssets, apiKey, model, localPlan, requestID] in
+        organizerTask = Task { [weak self, organizer, map, activeAssets, apiKey, model, baseURL, localPlan, requestID] in
             defer {
                 if let self, self.activeOrganizerID == requestID {
                     self.isOrganizing = false
@@ -468,7 +500,8 @@ final class AssetStore: ObservableObject {
                     map: map,
                     assets: activeAssets,
                     apiKey: apiKey,
-                    model: model
+                    model: model,
+                    baseURL: baseURL
                 )
                 guard !Task.isCancelled else { return }
                 guard let self, self.activeOrganizerID == requestID else { return }
@@ -554,9 +587,20 @@ final class AssetStore: ObservableObject {
     }
 
     func saveOpenAISettings() {
+        openAIModel = OpenAIConfiguration.normalizedModel(openAIModel)
+        openAIBaseURL = OpenAIConfiguration.normalizedBaseURL(openAIBaseURL)
+        do {
+            _ = try OpenAIConfiguration.responsesEndpoint(baseURL: openAIBaseURL)
+        } catch {
+            aiErrors["settings"] = error.localizedDescription
+            return
+        }
+
         UserDefaults.standard.set(openAIModel, forKey: "openAIModel")
+        UserDefaults.standard.set(openAIBaseURL, forKey: Self.openAIBaseURLDefaultsKey)
         do {
             try APIKeyStore.shared.saveOpenAIKey(openAIKey)
+            aiErrors["settings"] = nil
         } catch {
             aiErrors["settings"] = error.localizedDescription
         }
@@ -582,9 +626,10 @@ final class AssetStore: ObservableObject {
         enrichingAssetID = asset.id
         aiErrors[asset.contentHash] = nil
         let apiKey = openAIKey
-        let model = openAIModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "gpt-4.1-mini" : openAIModel
+        let model = OpenAIConfiguration.normalizedModel(openAIModel)
+        let baseURL = OpenAIConfiguration.normalizedBaseURL(openAIBaseURL)
 
-        enrichmentTask = Task { [weak self, asset, apiKey, model, enricher, summaryCache] in
+        enrichmentTask = Task { [weak self, asset, apiKey, model, baseURL, enricher, summaryCache] in
             defer {
                 Task { @MainActor [weak self] in
                     guard let self, self.enrichingAssetID == asset.id else { return }
@@ -597,7 +642,8 @@ final class AssetStore: ObservableObject {
                 let summary = try await enricher.summarize(
                     asset: asset,
                     apiKey: apiKey,
-                    model: model
+                    model: model,
+                    baseURL: baseURL
                 )
                 guard !Task.isCancelled else { return }
                 guard let self else { return }
@@ -678,6 +724,22 @@ final class AssetStore: ObservableObject {
 
     private func rebuildOrganizationMap() {
         organizationMap = OrganizationAnalyzer().map(assets: visibleAssets, aiSummaries: aiSummaries)
+    }
+
+    private func finishOrganizationMapBuild() {
+        pendingOrganizationMapAfterScan = false
+        isBuildingOrganizationMap = false
+        rebuildOrganizationMap()
+        organizationPlan = OrganizationPlan(
+            map: organizationMap,
+            recommendations: organizationPlan.recommendations.filter { recommendation in
+                visibleAssets.contains { $0.path == recommendation.primaryAssetPath }
+            },
+            source: organizationPlan.source
+        )
+        lastOrganizationMapDate = Date()
+        pruneOrganizationApprovals()
+        organizerStatus = String(format: t(.mapReadyWithCounts), organizationMap.totalAssets, organizationMap.buckets.count)
     }
 
     private func resetOrganizationApprovals(for plan: OrganizationPlan) {
