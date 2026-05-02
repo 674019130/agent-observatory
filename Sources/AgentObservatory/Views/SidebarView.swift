@@ -15,6 +15,15 @@ struct SidebarView: View {
                 ) {
                     store.showDashboard()
                 }
+
+                SidebarFilterRow(
+                    title: store.t(.aiOrganizer),
+                    systemImage: "sparkles.rectangle.stack",
+                    count: store.organizationPlan.recommendations.count,
+                    isSelected: store.selectedSection == .organizer
+                ) {
+                    store.showOrganizer()
+                }
             }
 
             Section(store.t(.management)) {

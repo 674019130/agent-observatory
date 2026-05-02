@@ -14,7 +14,13 @@ final class AssetStore: ObservableObject {
     @Published private(set) var lastChangeSummary: AssetChangeSummary = .empty
     @Published private(set) var managementState: AssetManagementState
     @Published private(set) var dashboardSummary: DashboardSummary = .empty
+    @Published private(set) var organizationMap: OrganizationMap = .empty
+    @Published private(set) var organizationPlan: OrganizationPlan = .empty
+    @Published private(set) var isOrganizing = false
+    @Published private(set) var organizerStatus: String?
     @Published var managementError: String?
+    @Published var organizerError: String?
+    @Published var approvedOrganizationRecommendationIDs: Set<String> = []
     @Published var selectedSection: WorkspaceSection = .dashboard
     @Published var scanSources: [ScanSource]
     @Published var selectedOwner: AgentOwner?
@@ -36,11 +42,14 @@ final class AssetStore: ObservableObject {
     private let scanner: FileSystemAssetScanner
     private let archiveService: AssetArchiveService
     private let enricher = OpenAIEnricher()
+    private let organizer = OpenAIOrganizer()
     private let summaryCache: SummaryCache
     private let watcher = SourceFileWatcher()
     private var activeScanID: UUID?
+    private var activeOrganizerID: UUID?
     private var cancellationToken: ScanCancellationToken?
     private var enrichmentTask: Task<Void, Never>?
+    private var organizerTask: Task<Void, Never>?
     private var lastSnapshot: ScanSnapshot?
 
     init(
@@ -60,6 +69,7 @@ final class AssetStore: ObservableObject {
     deinit {
         cancellationToken?.cancel()
         enrichmentTask?.cancel()
+        organizerTask?.cancel()
         watcher.stop()
     }
 
@@ -85,6 +95,10 @@ final class AssetStore: ObservableObject {
 
     var hiddenAssets: [AgentAsset] {
         managementState.hiddenAssets(from: assets)
+    }
+
+    var approvedOrganizationRecommendationCount: Int {
+        approvedOrganizationRecommendationIDs.count
     }
 
     var filteredAssets: [AgentAsset] {
@@ -137,6 +151,12 @@ final class AssetStore: ObservableObject {
 
     func showDashboard() {
         selectedSection = .dashboard
+    }
+
+    func showOrganizer() {
+        selectedSection = .organizer
+        selectedAssetID = nil
+        buildOrganizationMap()
     }
 
     func showAssets() {
@@ -318,6 +338,7 @@ final class AssetStore: ObservableObject {
         managementState.hide(path: asset.path)
         saveManagementState()
         rebuildDashboardSummary()
+        pruneOrganizationApprovals()
         if selectedAssetID == asset.id {
             selectedAssetID = filteredAssets.first?.id
         }
@@ -355,6 +376,7 @@ final class AssetStore: ObservableObject {
             managementError = nil
             markManagedFileEvent(path: asset.path, message: "Archived \(asset.displayPath)")
             rebuildDashboardSummary()
+            pruneOrganizationApprovals()
             if selectedAssetID == asset.id {
                 selectedAssetID = filteredAssets.first?.id
             }
@@ -371,9 +393,140 @@ final class AssetStore: ObservableObject {
             managementError = nil
             markManagedFileEvent(path: archivedAsset.originalPath, message: "Restored \(archivedAsset.displayOriginalPath)")
             rebuildDashboardSummary()
+            pruneOrganizationApprovals()
         } catch {
             managementError = error.localizedDescription
         }
+    }
+
+    func buildOrganizationMap() {
+        organizerTask?.cancel()
+        activeOrganizerID = nil
+        isOrganizing = false
+        organizerError = nil
+        rebuildOrganizationMap()
+        organizationPlan = OrganizationPlan(
+            map: organizationMap,
+            recommendations: organizationPlan.recommendations.filter { recommendation in
+                visibleAssets.contains { $0.path == recommendation.primaryAssetPath }
+            },
+            source: organizationPlan.source
+        )
+        pruneOrganizationApprovals()
+        organizerStatus = "\(organizationMap.totalAssets) \(t(.assets)) • \(organizationMap.buckets.count) \(t(.buckets))"
+    }
+
+    func generateOrganizationRecommendations(useAI: Bool = true) {
+        organizerTask?.cancel()
+        activeOrganizerID = nil
+        isOrganizing = false
+
+        let analyzer = OrganizationAnalyzer()
+        let activeAssets = visibleAssets
+        let map = analyzer.map(assets: activeAssets, aiSummaries: aiSummaries)
+        let localPlan = analyzer.recommendations(for: map, assets: activeAssets)
+
+        organizationMap = map
+        organizationPlan = localPlan
+        resetOrganizationApprovals(for: localPlan)
+        organizerError = nil
+
+        guard !activeAssets.isEmpty else {
+            organizerStatus = t(.noAssetsIndexed)
+            return
+        }
+
+        guard useAI else {
+            organizerStatus = t(.localPlanReady)
+            return
+        }
+
+        let apiKey = openAIKey
+        guard !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            organizerStatus = t(.localPlanReady)
+            organizerError = t(.openAIKeyRequiredForOrganizer)
+            return
+        }
+
+        let model = openAIModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "gpt-4.1-mini" : openAIModel
+        let requestID = UUID()
+        activeOrganizerID = requestID
+        isOrganizing = true
+        organizerStatus = t(.organizing)
+
+        organizerTask = Task { [weak self, organizer, map, activeAssets, apiKey, model, localPlan, requestID] in
+            defer {
+                if let self, self.activeOrganizerID == requestID {
+                    self.isOrganizing = false
+                    self.activeOrganizerID = nil
+                    self.organizerTask = nil
+                }
+            }
+
+            do {
+                let aiPlan = try await organizer.organize(
+                    map: map,
+                    assets: activeAssets,
+                    apiKey: apiKey,
+                    model: model
+                )
+                guard !Task.isCancelled else { return }
+                guard let self, self.activeOrganizerID == requestID else { return }
+                let mergedPlan = self.combinedOrganizationPlan(aiPlan: aiPlan, localPlan: localPlan, map: map)
+                self.organizationPlan = mergedPlan
+                self.resetOrganizationApprovals(for: mergedPlan)
+                self.organizerStatus = self.t(.aiPlanReady)
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled else { return }
+                guard let self, self.activeOrganizerID == requestID else { return }
+                self.organizationPlan = localPlan
+                self.resetOrganizationApprovals(for: localPlan)
+                self.organizerError = error.localizedDescription
+                self.organizerStatus = self.t(.aiPlanFailedUsingLocal)
+            }
+        }
+    }
+
+    func setOrganizationRecommendationApproved(_ recommendation: OrganizationRecommendation, approved: Bool) {
+        if approved {
+            approvedOrganizationRecommendationIDs.insert(recommendation.id)
+        } else {
+            approvedOrganizationRecommendationIDs.remove(recommendation.id)
+        }
+    }
+
+    func isOrganizationRecommendationApproved(_ recommendation: OrganizationRecommendation) -> Bool {
+        approvedOrganizationRecommendationIDs.contains(recommendation.id)
+    }
+
+    func applyApprovedOrganizationActions() {
+        let approvedRecommendations = organizationPlan.recommendations.filter {
+            approvedOrganizationRecommendationIDs.contains($0.id)
+        }
+
+        var appliedCount = 0
+        var manualCount = 0
+
+        for recommendation in approvedRecommendations {
+            guard let asset = assets.first(where: { $0.path == recommendation.primaryAssetPath }) else { continue }
+            switch recommendation.action {
+            case .archive:
+                archiveAsset(asset, reason: "AI Organizer: \(recommendation.reason)")
+                appliedCount += 1
+            case .hide:
+                hideAsset(asset)
+                appliedCount += 1
+            case .keep, .merge, .review:
+                manualCount += 1
+            }
+        }
+
+        approvedOrganizationRecommendationIDs = []
+        rebuildOrganizationMap()
+        organizationPlan = OrganizationAnalyzer().recommendations(for: organizationMap, assets: visibleAssets)
+        organizerStatus = String(format: t(.appliedOrganizationActions), appliedCount, manualCount)
     }
 
     func startWatchingSources() {
@@ -520,6 +673,62 @@ final class AssetStore: ObservableObject {
             existingSourceCount: existingScanSourceCount,
             isIndexStale: isIndexStale
         )
+        rebuildOrganizationMap()
+    }
+
+    private func rebuildOrganizationMap() {
+        organizationMap = OrganizationAnalyzer().map(assets: visibleAssets, aiSummaries: aiSummaries)
+    }
+
+    private func resetOrganizationApprovals(for plan: OrganizationPlan) {
+        approvedOrganizationRecommendationIDs = Set(plan.recommendations.filter(\.isApprovedByDefault).map(\.id))
+    }
+
+    private func pruneOrganizationApprovals() {
+        let visiblePaths = Set(visibleAssets.map(\.path))
+        let validIDs = Set(
+            organizationPlan.recommendations
+                .filter { visiblePaths.contains($0.primaryAssetPath) }
+                .map(\.id)
+        )
+        approvedOrganizationRecommendationIDs = approvedOrganizationRecommendationIDs.intersection(validIDs)
+    }
+
+    private func combinedOrganizationPlan(
+        aiPlan: OrganizationPlan,
+        localPlan: OrganizationPlan,
+        map: OrganizationMap
+    ) -> OrganizationPlan {
+        var seen: Set<String> = []
+        let recommendations = (aiPlan.recommendations + localPlan.recommendations).filter { recommendation in
+            seen.insert(recommendation.id).inserted
+        }
+        return OrganizationPlan(
+            map: map,
+            recommendations: recommendations.sorted { left, right in
+                if left.action != right.action {
+                    return organizationActionPriority(left.action) < organizationActionPriority(right.action)
+                }
+                if left.confidence != right.confidence { return left.confidence > right.confidence }
+                return left.title.localizedCaseInsensitiveCompare(right.title) == .orderedAscending
+            },
+            source: "openai + local"
+        )
+    }
+
+    private func organizationActionPriority(_ action: OrganizationAction) -> Int {
+        switch action {
+        case .archive:
+            0
+        case .hide:
+            1
+        case .merge:
+            2
+        case .review:
+            3
+        case .keep:
+            4
+        }
     }
 
     private func markManagedFileEvent(path: String, message: String) {

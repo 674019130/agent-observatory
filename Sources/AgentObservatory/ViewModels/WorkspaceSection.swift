@@ -2,6 +2,7 @@ import Foundation
 
 enum WorkspaceSection: String, CaseIterable, Identifiable {
     case dashboard = "Dashboard"
+    case organizer = "Organizer"
     case assets = "Assets"
     case hidden = "Hidden"
     case archive = "Archive"

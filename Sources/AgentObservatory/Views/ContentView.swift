@@ -13,6 +13,8 @@ struct ContentView: View {
             Group {
                 if store.selectedSection == .dashboard {
                     DashboardView()
+                } else if store.selectedSection == .organizer {
+                    OrganizerView()
                 } else if store.selectedSection == .hidden {
                     HiddenView()
                 } else if store.selectedSection == .archive {
@@ -28,6 +30,13 @@ struct ContentView: View {
                     title: store.t(.archiveCenter),
                     message: store.t(.archiveCenterMessage),
                     systemImage: "archivebox"
+                )
+                .navigationSplitViewColumnWidth(min: 420, ideal: 620)
+            } else if store.selectedSection == .organizer {
+                EmptyStateView(
+                    title: store.t(.aiOrganizer),
+                    message: store.t(.organizerDetailMessage),
+                    systemImage: "sparkles.rectangle.stack"
                 )
                 .navigationSplitViewColumnWidth(min: 420, ideal: 620)
             } else if store.selectedSection == .hidden {
@@ -74,7 +83,7 @@ struct ContentView: View {
             } label: {
                 Label(store.t(.explain), systemImage: "sparkles")
             }
-            .disabled(store.selectedSection == .archive || store.selectedSection == .hidden || store.selectedAsset == nil || store.enrichingAssetID != nil)
+            .disabled(store.selectedSection == .archive || store.selectedSection == .hidden || store.selectedSection == .organizer || store.selectedAsset == nil || store.enrichingAssetID != nil)
             .help(store.t(.explainWithOpenAI))
 
             if store.isIndexStale {

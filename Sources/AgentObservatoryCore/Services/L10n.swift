@@ -34,6 +34,33 @@ public enum L10n {
         case hiddenItems
         case unhideAll
         case dashboard
+        case aiOrganizer
+        case organizerSubtitle
+        case organizerDetailMessage
+        case buildMap
+        case askAIForPlan
+        case localPlan
+        case applyApproved
+        case approved
+        case recommendations
+        case buckets
+        case audiences
+        case humanReviewRequired
+        case manualOnlyNotice
+        case noOrganizationMap
+        case noOrganizationRecommendations
+        case planSource
+        case confidence
+        case relatedAssets
+        case organizationMap
+        case organizationPlan
+        case organizing
+        case mapReady
+        case localPlanReady
+        case aiPlanReady
+        case aiPlanFailedUsingLocal
+        case openAIKeyRequiredForOrganizer
+        case appliedOrganizationActions
         case assets
         case archive
         case allSources
@@ -323,6 +350,17 @@ public enum L10n {
         }
     }
 
+    public static func organizationAction(_ action: OrganizationAction, language: AppLanguage) -> String {
+        switch (action, language) {
+        case (.keep, .simplifiedChinese): "保留"
+        case (.merge, .simplifiedChinese): "合并"
+        case (.archive, .simplifiedChinese): "归档"
+        case (.hide, .simplifiedChinese): "隐藏"
+        case (.review, .simplifiedChinese): "复核"
+        default: action.rawValue
+        }
+    }
+
     public static func diffField(_ field: String, language: AppLanguage) -> String {
         switch field {
         case "Path": text(.path, language: language)
@@ -371,6 +409,33 @@ public enum L10n {
         .hiddenItems: [.english: "Hidden Items", .simplifiedChinese: "隐藏项目"],
         .unhideAll: [.english: "Unhide All", .simplifiedChinese: "全部取消隐藏"],
         .dashboard: [.english: "Dashboard", .simplifiedChinese: "仪表盘"],
+        .aiOrganizer: [.english: "AI Organizer", .simplifiedChinese: "AI 整理器"],
+        .organizerSubtitle: [.english: "Map local agent assets, ask AI for conservative cleanup advice, then approve exactly what should be applied.", .simplifiedChinese: "先映射本地 agent 资产，再让 AI 给出保守整理建议，最后只执行你明确批准的操作。"],
+        .organizerDetailMessage: [.english: "Use the center pane to build a map, generate a plan, and approve archive or hide actions.", .simplifiedChinese: "在中间栏生成资产地图、整理计划，并批准归档或隐藏操作。"],
+        .buildMap: [.english: "Build Map", .simplifiedChinese: "生成地图"],
+        .askAIForPlan: [.english: "Ask AI for Plan", .simplifiedChinese: "让 AI 规划"],
+        .localPlan: [.english: "Local Plan", .simplifiedChinese: "本地计划"],
+        .applyApproved: [.english: "Apply Approved", .simplifiedChinese: "执行已批准"],
+        .approved: [.english: "Approved", .simplifiedChinese: "已批准"],
+        .recommendations: [.english: "Recommendations", .simplifiedChinese: "建议"],
+        .buckets: [.english: "Buckets", .simplifiedChinese: "分组"],
+        .audiences: [.english: "Audiences", .simplifiedChinese: "使用对象"],
+        .humanReviewRequired: [.english: "Human review required", .simplifiedChinese: "需要人工确认"],
+        .manualOnlyNotice: [.english: "Only approved Archive and Hide actions are executed. Keep, Merge, and Review remain manual follow-up notes.", .simplifiedChinese: "只有已批准的归档和隐藏会被执行。保留、合并、复核会作为人工后续事项保留。"],
+        .noOrganizationMap: [.english: "No organization map yet.", .simplifiedChinese: "尚未生成整理地图。"],
+        .noOrganizationRecommendations: [.english: "No recommendations yet. Build a local plan or ask AI for a plan.", .simplifiedChinese: "尚无整理建议。可以生成本地计划，或让 AI 规划。"],
+        .planSource: [.english: "Plan source", .simplifiedChinese: "计划来源"],
+        .confidence: [.english: "Confidence", .simplifiedChinese: "置信度"],
+        .relatedAssets: [.english: "Related Assets", .simplifiedChinese: "相关资产"],
+        .organizationMap: [.english: "Organization Map", .simplifiedChinese: "整理地图"],
+        .organizationPlan: [.english: "Organization Plan", .simplifiedChinese: "整理计划"],
+        .organizing: [.english: "Asking AI for an organization plan", .simplifiedChinese: "正在让 AI 生成整理计划"],
+        .mapReady: [.english: "Map ready", .simplifiedChinese: "地图已生成"],
+        .localPlanReady: [.english: "Local plan ready", .simplifiedChinese: "本地计划已生成"],
+        .aiPlanReady: [.english: "AI plan ready", .simplifiedChinese: "AI 计划已生成"],
+        .aiPlanFailedUsingLocal: [.english: "AI plan failed. Showing the local plan instead.", .simplifiedChinese: "AI 计划失败，已显示本地计划。"],
+        .openAIKeyRequiredForOrganizer: [.english: "Add an OpenAI API key in Settings to generate an AI plan.", .simplifiedChinese: "请先在设置中添加 OpenAI API key，才能生成 AI 计划。"],
+        .appliedOrganizationActions: [.english: "Applied %d actions. %d approved items remain manual follow-up.", .simplifiedChinese: "已执行 %d 个操作。%d 个已批准项目保留为人工后续事项。"],
         .assets: [.english: "Assets", .simplifiedChinese: "资产"],
         .archive: [.english: "Archive", .simplifiedChinese: "归档"],
         .allSources: [.english: "All Sources", .simplifiedChinese: "全部来源"],
