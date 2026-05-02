@@ -1,0 +1,169 @@
+<p align="center">
+  <img src="docs/assets/app-icon.png" width="128" height="128" alt="Agent Observatory app icon">
+</p>
+
+<h1 align="center">Agent Observatory</h1>
+
+<p align="center">
+  A native macOS command center for inspecting, understanding, and managing your local AI-agent files.
+</p>
+
+<p align="center">
+  <a href="#features">Features</a>
+  ·
+  <a href="#quick-start">Quick Start</a>
+  ·
+  <a href="#privacy-first">Privacy</a>
+  ·
+  <a href="#architecture">Architecture</a>
+</p>
+
+---
+
+Agent Observatory gives you one place to see what Claude Code, Codex, local
+agent skills, commands, memories, rules, MCP configs, and project instructions
+are doing on your machine.
+
+It is built for people who run more than one AI coding tool and eventually lose
+track of which tool has which memory, skill, command, or stale path. The app
+scans a focused set of local directories, classifies the files it finds, explains
+what they do, highlights drift, and lets you hide or archive files without
+losing them.
+
+## Features
+
+- **Focused local scanning**  
+  Index Claude, Codex, Agents, plugin, and project sources without crawling your
+  whole filesystem.
+
+- **Search with real context**  
+  Search across titles, summaries, paths, preview text, dependencies, triggers,
+  and status flags.
+
+- **Dashboard for risk and drift**  
+  See stale paths, duplicate identities, unreadable files, large files, missing
+  descriptions, dependency hotspots, and Claude/Codex drift in one view.
+
+- **AI explanations with redaction**  
+  Use your own OpenAI API key to generate short explanations. Sensitive files are
+  detected locally and excluded from LLM enrichment.
+
+- **Raw content inspection**  
+  Open the full raw file content when needed, with large-file preflight and
+  secret redaction.
+
+- **Soft management tools**  
+  Hide noisy files from the main index, restore hidden files later, or archive
+  files into a managed location with restore support.
+
+- **Bilingual UI**  
+  Switch between English and Simplified Chinese from Settings.
+
+- **Native macOS experience**  
+  SwiftUI, NavigationSplitView, local Keychain storage, filesystem watching, and
+  a proper macOS app bundle icon.
+
+## Quick Start
+
+Requirements:
+
+- macOS 14 or newer
+- Xcode command line tools
+- Swift 5.9+
+
+Clone and run:
+
+```bash
+git clone https://github.com/674019130/agent-observatory.git
+cd agent-observatory
+./script/build_and_run.sh
+```
+
+Run tests:
+
+```bash
+swift test
+```
+
+Build and verify that the app launches:
+
+```bash
+./script/build_and_run.sh --verify
+```
+
+## What It Finds
+
+Agent Observatory looks for local agent assets such as:
+
+- skills and `SKILL.md` files
+- slash commands
+- memory and instruction files
+- rule files
+- MCP configuration
+- plugin metadata
+- scripts related to agent workflows
+- sensitive config files that should not be sent to an LLM
+
+The scanner uses explicit source definitions and depth limits. You can enable,
+disable, add, or reset sources from Settings.
+
+## Privacy First
+
+Agent Observatory is local-first.
+
+- Files are scanned locally.
+- API keys are stored in the macOS Keychain.
+- OpenAI enrichment uses your own API key.
+- Only redacted previews are sent for AI explanations.
+- Sensitive paths such as auth files, token files, and key material are blocked
+  from preview and LLM enrichment.
+- Hidden and archived state is stored locally in `UserDefaults`.
+
+## Architecture
+
+The project is a SwiftPM package with two targets:
+
+```text
+AgentObservatory
+├─ AgentObservatory        # SwiftUI macOS app
+└─ AgentObservatoryCore    # scanning, classification, redaction, diffing, archive logic
+```
+
+Core services include:
+
+- `FileSystemAssetScanner` for focused streaming scans with progress updates
+- `AssetClassifier` for extracting names, summaries, triggers, and health flags
+- `DashboardAnalyzer` for risk ranking and dependency hotspots
+- `AssetImpactAnalyzer` for incoming/outgoing reference analysis
+- `RawContentReader` for safe full-content inspection
+- `AssetArchiveService` for soft-delete style archive and restore
+- `OpenAIEnricher` for optional file explanations
+
+## Development
+
+Useful commands:
+
+```bash
+swift build
+swift test
+./script/build_and_run.sh
+./script/build_and_run.sh --verify
+```
+
+The app bundle is created at:
+
+```text
+dist/AgentObservatory.app
+```
+
+## Roadmap
+
+- Dependency graph visualization
+- Safer bulk-management confirmation flows
+- Per-source scan presets
+- Import/export for management state
+- Better release packaging and notarization
+
+## License
+
+MIT
