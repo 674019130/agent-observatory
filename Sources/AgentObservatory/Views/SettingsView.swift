@@ -273,6 +273,25 @@ private struct OpenAISettingsPane: View {
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
+                    Text(store.t(.modelPreset))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Picker(store.t(.modelPreset), selection: Binding(
+                        get: { OpenAIModelPreset.allCases.first { $0.modelID == store.openAIModel }?.modelID ?? "custom" },
+                        set: { value in
+                            if let preset = OpenAIModelPreset.allCases.first(where: { $0.modelID == value }) {
+                                store.openAIModel = preset.modelID
+                            }
+                        }
+                    )) {
+                        ForEach(OpenAIModelPreset.allCases) { preset in
+                            Text(preset.title).tag(preset.modelID)
+                        }
+                        Text(store.t(.customModel)).tag("custom")
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 460)
+
                     Text(store.t(.model))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)

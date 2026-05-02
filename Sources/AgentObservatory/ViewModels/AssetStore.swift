@@ -20,6 +20,7 @@ final class AssetStore: ObservableObject {
     @Published private(set) var isBuildingOrganizationMap = false
     @Published private(set) var isOrganizing = false
     @Published private(set) var organizerStatus: String?
+    @Published var organizationDetailSelection = OrganizationDetailSelection()
     @Published var managementError: String?
     @Published var organizerError: String?
     @Published var approvedOrganizationRecommendationIDs: Set<String> = []
@@ -34,7 +35,7 @@ final class AssetStore: ObservableObject {
     @Published var aiErrors: [String: String] = [:]
     @Published var enrichingAssetID: AgentAsset.ID?
     @Published var appLanguage = AppLanguage.fromStoredValue(UserDefaults.standard.string(forKey: "appLanguage"))
-    @Published var openAIModel = UserDefaults.standard.string(forKey: "openAIModel") ?? OpenAIConfiguration.defaultModel
+    @Published var openAIModel = OpenAIConfiguration.normalizedStoredModel(UserDefaults.standard.string(forKey: "openAIModel"))
     @Published var openAIBaseURL = UserDefaults.standard.string(forKey: "openAIBaseURL")
         ?? ProcessInfo.processInfo.environment["OPENAI_BASE_URL"]
         ?? OpenAIConfiguration.defaultBaseURL
@@ -106,6 +107,16 @@ final class AssetStore: ObservableObject {
 
     var approvedOrganizationRecommendationCount: Int {
         approvedOrganizationRecommendationIDs.count
+    }
+
+    var selectedOrganizationRecommendation: OrganizationRecommendation? {
+        guard let id = organizationDetailSelection.recommendationID else { return nil }
+        return organizationPlan.recommendations.first { $0.id == id }
+    }
+
+    var selectedOrganizationBucket: OrganizationBucket? {
+        guard let id = organizationDetailSelection.bucketID else { return nil }
+        return organizationMap.buckets.first { $0.id == id }
     }
 
     var filteredAssets: [AgentAsset] {
@@ -534,6 +545,14 @@ final class AssetStore: ObservableObject {
         approvedOrganizationRecommendationIDs.contains(recommendation.id)
     }
 
+    func selectOrganizationRecommendation(_ recommendation: OrganizationRecommendation) {
+        organizationDetailSelection.selectRecommendation(id: recommendation.id)
+    }
+
+    func selectOrganizationBucket(_ bucket: OrganizationBucket) {
+        organizationDetailSelection.selectBucket(id: bucket.id)
+    }
+
     func applyApprovedOrganizationActions() {
         let approvedRecommendations = organizationPlan.recommendations.filter {
             approvedOrganizationRecommendationIDs.contains($0.id)
@@ -739,6 +758,7 @@ final class AssetStore: ObservableObject {
         )
         lastOrganizationMapDate = Date()
         pruneOrganizationApprovals()
+        preserveValidOrganizationDetailSelection()
         organizerStatus = String(format: t(.mapReadyWithCounts), organizationMap.totalAssets, organizationMap.buckets.count)
     }
 
@@ -754,6 +774,22 @@ final class AssetStore: ObservableObject {
                 .map(\.id)
         )
         approvedOrganizationRecommendationIDs = approvedOrganizationRecommendationIDs.intersection(validIDs)
+        preserveValidOrganizationDetailSelection()
+    }
+
+    private func preserveValidOrganizationDetailSelection() {
+        switch organizationDetailSelection.kind {
+        case .recommendation:
+            if selectedOrganizationRecommendation == nil {
+                organizationDetailSelection.clear()
+            }
+        case .bucket:
+            if selectedOrganizationBucket == nil {
+                organizationDetailSelection.clear()
+            }
+        case .none:
+            break
+        }
     }
 
     private func combinedOrganizationPlan(

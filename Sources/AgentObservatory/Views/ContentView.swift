@@ -33,11 +33,7 @@ struct ContentView: View {
                 )
                 .navigationSplitViewColumnWidth(min: 420, ideal: 620)
             } else if store.selectedSection == .organizer {
-                EmptyStateView(
-                    title: store.t(.aiOrganizer),
-                    message: store.t(.organizerDetailMessage),
-                    systemImage: "sparkles.rectangle.stack"
-                )
+                OrganizerDetailView()
                 .navigationSplitViewColumnWidth(min: 420, ideal: 620)
             } else if store.selectedSection == .hidden {
                 EmptyStateView(

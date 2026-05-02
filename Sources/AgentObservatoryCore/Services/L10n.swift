@@ -27,6 +27,8 @@ public enum L10n {
         case apiKey
         case model
         case modelDescription
+        case modelPreset
+        case customModel
         case baseURL
         case openAIBaseURLDescription
         case save
@@ -40,6 +42,15 @@ public enum L10n {
         case aiOrganizer
         case organizerSubtitle
         case organizerDetailMessage
+        case organizerInspector
+        case organizerInspectorMessage
+        case recommendationDetail
+        case bucketDetail
+        case primaryAsset
+        case openPrimaryAsset
+        case approveForApply
+        case manualFollowUp
+        case affectedAssets
         case buildMap
         case askAIForPlan
         case localPlan
@@ -408,7 +419,9 @@ public enum L10n {
         .openAIDescription: [.english: "The app sends only redacted file previews for per-file explanations. Sensitive files such as auth.json are never previewed.", .simplifiedChinese: "应用只会发送经过脱敏的文件预览用于逐文件解释。auth.json 等敏感文件永远不会被预览。"],
         .apiKey: [.english: "API key", .simplifiedChinese: "API key"],
         .model: [.english: "Model", .simplifiedChinese: "模型"],
-        .modelDescription: [.english: "Default model is gpt-4.1. You can type any OpenAI model name your account can use.", .simplifiedChinese: "默认模型为 gpt-4.1。你也可以输入当前账号可用的任意 OpenAI 模型名。"],
+        .modelDescription: [.english: "Default model is gpt-5.5. You can type any OpenAI model name your account can use.", .simplifiedChinese: "默认模型为 gpt-5.5。你也可以输入当前账号可用的任意 OpenAI 模型名。"],
+        .modelPreset: [.english: "Model Preset", .simplifiedChinese: "模型预设"],
+        .customModel: [.english: "Custom", .simplifiedChinese: "自定义"],
         .baseURL: [.english: "Base URL", .simplifiedChinese: "Base URL"],
         .openAIBaseURLDescription: [.english: "Use https://api.openai.com/v1 for OpenAI. The app appends /responses automatically.", .simplifiedChinese: "OpenAI 默认使用 https://api.openai.com/v1。应用会自动拼接 /responses。"],
         .save: [.english: "Save", .simplifiedChinese: "保存"],
@@ -422,6 +435,15 @@ public enum L10n {
         .aiOrganizer: [.english: "AI Organizer", .simplifiedChinese: "AI 整理器"],
         .organizerSubtitle: [.english: "Map local agent assets, ask AI for conservative cleanup advice, then approve exactly what should be applied.", .simplifiedChinese: "先映射本地 agent 资产，再让 AI 给出保守整理建议，最后只执行你明确批准的操作。"],
         .organizerDetailMessage: [.english: "Use the center pane to build a map, generate a plan, and approve archive or hide actions.", .simplifiedChinese: "在中间栏生成资产地图、整理计划，并批准归档或隐藏操作。"],
+        .organizerInspector: [.english: "Organizer Inspector", .simplifiedChinese: "整理器检查器"],
+        .organizerInspectorMessage: [.english: "Select a bucket or recommendation to inspect details here.", .simplifiedChinese: "选择一个分组或建议后，在这里查看详情。"],
+        .recommendationDetail: [.english: "Recommendation Detail", .simplifiedChinese: "建议详情"],
+        .bucketDetail: [.english: "Bucket Detail", .simplifiedChinese: "分组详情"],
+        .primaryAsset: [.english: "Primary Asset", .simplifiedChinese: "主资产"],
+        .openPrimaryAsset: [.english: "Open Primary Asset", .simplifiedChinese: "打开主资产"],
+        .approveForApply: [.english: "Approve for apply", .simplifiedChinese: "批准执行"],
+        .manualFollowUp: [.english: "Manual Follow-up", .simplifiedChinese: "人工后续"],
+        .affectedAssets: [.english: "Affected Assets", .simplifiedChinese: "涉及资产"],
         .buildMap: [.english: "Build Map", .simplifiedChinese: "生成地图"],
         .askAIForPlan: [.english: "Ask AI for Plan", .simplifiedChinese: "让 AI 规划"],
         .localPlan: [.english: "Local Plan", .simplifiedChinese: "本地计划"],

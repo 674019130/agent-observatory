@@ -199,7 +199,12 @@ private struct OrganizerMapSection: View {
 
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 10)], spacing: 10) {
                     ForEach(store.organizationMap.buckets.prefix(12)) { bucket in
-                        OrganizerBucketCard(bucket: bucket)
+                        Button {
+                            store.selectOrganizationBucket(bucket)
+                        } label: {
+                            OrganizerBucketCard(bucket: bucket)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -283,7 +288,7 @@ private struct OrganizerBucketCard: View {
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color(nsColor: .separatorColor).opacity(0.45))
+                .stroke(store.organizationDetailSelection.bucketID == bucket.id ? Color.accentColor.opacity(0.75) : Color(nsColor: .separatorColor).opacity(0.45))
         }
     }
 }
@@ -392,12 +397,16 @@ private struct OrganizerRecommendationRow: View {
                 }
             }
         }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            store.selectOrganizationRecommendation(recommendation)
+        }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(actionTint.opacity(0.28))
+                .stroke(store.organizationDetailSelection.recommendationID == recommendation.id ? Color.accentColor.opacity(0.75) : actionTint.opacity(0.28))
         }
     }
 
