@@ -16,14 +16,19 @@ final class AssetStore: ObservableObject {
     @Published private(set) var dashboardSummary: DashboardSummary = .empty
     @Published private(set) var organizationMap: OrganizationMap = .empty
     @Published private(set) var organizationPlan: OrganizationPlan = .empty
+    @Published private(set) var cleanupReviewSession: CleanupReviewSession = .empty
     @Published private(set) var lastOrganizationMapDate: Date?
     @Published private(set) var isBuildingOrganizationMap = false
+    @Published private(set) var isBuildingCleanupReview = false
     @Published private(set) var isOrganizing = false
     @Published private(set) var organizerStatus: String?
     @Published var organizationDetailSelection = OrganizationDetailSelection()
+    @Published var cleanupReviewGoal: CleanupReviewGoal = .fullReview
+    @Published var selectedCleanupGroupID: CleanupReviewGroup.ID?
     @Published var managementError: String?
     @Published var organizerError: String?
     @Published var approvedOrganizationRecommendationIDs: Set<String> = []
+    @Published var approvedCleanupGroupIDs: Set<String> = []
     @Published var selectedSection: WorkspaceSection = .dashboard
     @Published var scanSources: [ScanSource]
     @Published var selectedOwner: AgentOwner?
@@ -58,6 +63,7 @@ final class AssetStore: ObservableObject {
     private var enrichmentTask: Task<Void, Never>?
     private var organizerTask: Task<Void, Never>?
     private var pendingOrganizationMapAfterScan = false
+    private var pendingCleanupReviewAfterScan = false
     private var lastSnapshot: ScanSnapshot?
 
     init(
@@ -107,6 +113,24 @@ final class AssetStore: ObservableObject {
 
     var approvedOrganizationRecommendationCount: Int {
         approvedOrganizationRecommendationIDs.count
+    }
+
+    var approvedCleanupGroupCount: Int {
+        approvedCleanupGroupIDs.count
+    }
+
+    var cleanupReviewAffectedAssetCount: Int {
+        Set(cleanupReviewSession.groups.flatMap(\.assetPaths)).count
+    }
+
+    var executableCleanupGroupCount: Int {
+        cleanupReviewSession.groups.filter(\.canApplyAutomatically).count
+    }
+
+    var selectedCleanupGroup: CleanupReviewGroup? {
+        guard organizationDetailSelection.kind == .none else { return nil }
+        guard let selectedCleanupGroupID else { return cleanupReviewSession.groups.first }
+        return cleanupReviewSession.groups.first { $0.id == selectedCleanupGroupID } ?? cleanupReviewSession.groups.first
     }
 
     var selectedOrganizationRecommendation: OrganizationRecommendation? {
@@ -233,6 +257,11 @@ final class AssetStore: ObservableObject {
                         self.isBuildingOrganizationMap = false
                         self.organizerStatus = self.t(.scanCancelledForMap)
                     }
+                    if self.pendingCleanupReviewAfterScan {
+                        self.pendingCleanupReviewAfterScan = false
+                        self.isBuildingCleanupReview = false
+                        self.organizerStatus = self.t(.scanCancelledForCleanupReview)
+                    }
                     self.isScanning = false
                     self.scanProgress = ScanProgress(
                         phase: .cancelled,
@@ -277,6 +306,9 @@ final class AssetStore: ObservableObject {
                 if self.pendingOrganizationMapAfterScan {
                     self.finishOrganizationMapBuild()
                 }
+                if self.pendingCleanupReviewAfterScan {
+                    self.finishCleanupReview()
+                }
 
                 if let previousSelectedPath,
                    let preserved = visibleScanned.first(where: { $0.path == previousSelectedPath }) {
@@ -296,6 +328,11 @@ final class AssetStore: ObservableObject {
             pendingOrganizationMapAfterScan = false
             isBuildingOrganizationMap = false
             organizerStatus = t(.scanCancelledForMap)
+        }
+        if pendingCleanupReviewAfterScan {
+            pendingCleanupReviewAfterScan = false
+            isBuildingCleanupReview = false
+            organizerStatus = t(.scanCancelledForCleanupReview)
         }
         isScanning = false
         scanProgress = ScanProgress(
@@ -458,6 +495,31 @@ final class AssetStore: ObservableObject {
         }
     }
 
+    func startCleanupReview() {
+        organizerTask?.cancel()
+        activeOrganizerID = nil
+        isOrganizing = false
+        organizerError = nil
+
+        switch OrganizationMapBuildPlanner().decision(
+            assetCount: visibleAssets.count,
+            isIndexStale: isIndexStale,
+            isScanning: isScanning
+        ) {
+        case .buildCurrentIndex:
+            finishCleanupReview()
+        case .scanThenBuild:
+            pendingCleanupReviewAfterScan = true
+            isBuildingCleanupReview = true
+            organizerStatus = t(.scanningForCleanupReview)
+            scan()
+        case .waitForScan:
+            pendingCleanupReviewAfterScan = true
+            isBuildingCleanupReview = true
+            organizerStatus = t(.scanningForCleanupReview)
+        }
+    }
+
     func generateOrganizationRecommendations(useAI: Bool = true) {
         organizerTask?.cancel()
         activeOrganizerID = nil
@@ -551,6 +613,55 @@ final class AssetStore: ObservableObject {
 
     func selectOrganizationBucket(_ bucket: OrganizationBucket) {
         organizationDetailSelection.selectBucket(id: bucket.id)
+    }
+
+    func selectCleanupGroup(_ group: CleanupReviewGroup) {
+        selectedCleanupGroupID = group.id
+        organizationDetailSelection.clear()
+    }
+
+    func setCleanupGroupApproved(_ group: CleanupReviewGroup, approved: Bool) {
+        guard group.canApplyAutomatically else {
+            approvedCleanupGroupIDs.remove(group.id)
+            return
+        }
+
+        if approved {
+            approvedCleanupGroupIDs.insert(group.id)
+        } else {
+            approvedCleanupGroupIDs.remove(group.id)
+        }
+    }
+
+    func isCleanupGroupApproved(_ group: CleanupReviewGroup) -> Bool {
+        approvedCleanupGroupIDs.contains(group.id)
+    }
+
+    func applyApprovedCleanupGroups() {
+        let approvedGroups = cleanupReviewSession.groups.filter {
+            approvedCleanupGroupIDs.contains($0.id) && $0.canApplyAutomatically
+        }
+
+        var appliedCount = 0
+        for group in approvedGroups {
+            for path in group.assetPaths {
+                guard let asset = assets.first(where: { $0.path == path }) else { continue }
+                switch group.action {
+                case .archive:
+                    archiveAsset(asset, reason: "Cleanup Review: \(group.summary)")
+                    appliedCount += 1
+                case .hide:
+                    hideAsset(asset)
+                    appliedCount += 1
+                case .merge, .review, .keep:
+                    break
+                }
+            }
+        }
+
+        approvedCleanupGroupIDs = []
+        finishCleanupReview()
+        organizerStatus = String(format: t(.appliedCleanupActions), appliedCount)
     }
 
     func applyApprovedOrganizationActions() {
@@ -760,6 +871,22 @@ final class AssetStore: ObservableObject {
         pruneOrganizationApprovals()
         preserveValidOrganizationDetailSelection()
         organizerStatus = String(format: t(.mapReadyWithCounts), organizationMap.totalAssets, organizationMap.buckets.count)
+    }
+
+    private func finishCleanupReview() {
+        pendingCleanupReviewAfterScan = false
+        isBuildingCleanupReview = false
+        rebuildOrganizationMap()
+        cleanupReviewSession = CleanupReviewAnalyzer().session(goal: cleanupReviewGoal, assets: visibleAssets)
+        lastOrganizationMapDate = Date()
+        approvedCleanupGroupIDs = approvedCleanupGroupIDs.intersection(Set(cleanupReviewSession.groups.map(\.id)))
+        if let selectedCleanupGroupID,
+           !cleanupReviewSession.groups.contains(where: { $0.id == selectedCleanupGroupID }) {
+            self.selectedCleanupGroupID = cleanupReviewSession.groups.first?.id
+        } else if selectedCleanupGroupID == nil {
+            selectedCleanupGroupID = cleanupReviewSession.groups.first?.id
+        }
+        organizerStatus = String(format: t(.cleanupReviewReadyWithCounts), cleanupReviewSession.groups.count, cleanupReviewAffectedAssetCount)
     }
 
     private func resetOrganizationApprovals(for plan: OrganizationPlan) {

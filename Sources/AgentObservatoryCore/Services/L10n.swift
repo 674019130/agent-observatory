@@ -51,6 +51,22 @@ public enum L10n {
         case approveForApply
         case manualFollowUp
         case affectedAssets
+        case cleanupReview
+        case cleanupReviewSubtitle
+        case cleanupGoal
+        case startCleanupReview
+        case cleanupGroups
+        case executableActions
+        case inventoryEvidence
+        case noCleanupGroups
+        case recommendedAction
+        case cleanupEvidence
+        case openGroup
+        case applyApprovedCleanup
+        case cleanupReviewReadyWithCounts
+        case scanningForCleanupReview
+        case scanCancelledForCleanupReview
+        case appliedCleanupActions
         case buildMap
         case askAIForPlan
         case localPlan
@@ -379,6 +395,39 @@ public enum L10n {
         }
     }
 
+    public static func cleanupGoal(_ goal: CleanupReviewGoal, language: AppLanguage) -> String {
+        switch (goal, language) {
+        case (.fullReview, .simplifiedChinese): "完整整理"
+        case (.legacyClaudeCleanup, .simplifiedChinese): "清理 Claude 旧配置"
+        case (.duplicateCleanup, .simplifiedChinese): "合并重复项"
+        case (.noiseCleanup, .simplifiedChinese): "隐藏噪音"
+        case (.riskCleanup, .simplifiedChinese): "检查风险"
+        default: goal.rawValue
+        }
+    }
+
+    public static func cleanupAction(_ action: CleanupReviewAction, language: AppLanguage) -> String {
+        switch (action, language) {
+        case (.archive, .simplifiedChinese): "归档"
+        case (.hide, .simplifiedChinese): "隐藏"
+        case (.merge, .simplifiedChinese): "合并"
+        case (.review, .simplifiedChinese): "复核"
+        case (.keep, .simplifiedChinese): "保留"
+        default: action.rawValue
+        }
+    }
+
+    public static func cleanupRisk(_ risk: CleanupReviewRisk, language: AppLanguage) -> String {
+        switch (risk, language) {
+        case (.low, .simplifiedChinese): "低风险"
+        case (.medium, .simplifiedChinese): "中风险"
+        case (.high, .simplifiedChinese): "高风险"
+        case (.low, _): "Low risk"
+        case (.medium, _): "Medium risk"
+        case (.high, _): "High risk"
+        }
+    }
+
     public static func diffField(_ field: String, language: AppLanguage) -> String {
         switch field {
         case "Path": text(.path, language: language)
@@ -444,6 +493,22 @@ public enum L10n {
         .approveForApply: [.english: "Approve for apply", .simplifiedChinese: "批准执行"],
         .manualFollowUp: [.english: "Manual Follow-up", .simplifiedChinese: "人工后续"],
         .affectedAssets: [.english: "Affected Assets", .simplifiedChinese: "涉及资产"],
+        .cleanupReview: [.english: "Cleanup Review", .simplifiedChinese: "整理审查"],
+        .cleanupReviewSubtitle: [.english: "Start with a goal, review issue groups with evidence, then apply only reversible actions.", .simplifiedChinese: "先选择目标，再按问题组看证据，最后只执行可回滚的操作。"],
+        .cleanupGoal: [.english: "Cleanup Goal", .simplifiedChinese: "整理目标"],
+        .startCleanupReview: [.english: "Start Cleanup Review", .simplifiedChinese: "开始整理审查"],
+        .cleanupGroups: [.english: "Issue Groups", .simplifiedChinese: "问题组"],
+        .executableActions: [.english: "Executable Actions", .simplifiedChinese: "可执行操作"],
+        .inventoryEvidence: [.english: "Inventory Evidence", .simplifiedChinese: "索引证据"],
+        .noCleanupGroups: [.english: "No issue groups for this goal. Try another goal or refresh the index.", .simplifiedChinese: "这个目标下没有问题组。可以换一个目标，或刷新索引。"],
+        .recommendedAction: [.english: "Recommended Action", .simplifiedChinese: "推荐动作"],
+        .cleanupEvidence: [.english: "Evidence", .simplifiedChinese: "证据"],
+        .openGroup: [.english: "Open Group", .simplifiedChinese: "打开问题组"],
+        .applyApprovedCleanup: [.english: "Apply Approved Cleanup", .simplifiedChinese: "执行已批准整理"],
+        .cleanupReviewReadyWithCounts: [.english: "Cleanup review ready: %d groups affecting %d assets.", .simplifiedChinese: "整理审查已生成：%d 个问题组，涉及 %d 个资产。"],
+        .scanningForCleanupReview: [.english: "Scanning enabled sources before starting cleanup review.", .simplifiedChinese: "正在先扫描启用来源，然后开始整理审查。"],
+        .scanCancelledForCleanupReview: [.english: "Cleanup review cancelled with the scan.", .simplifiedChinese: "扫描已取消，整理审查也已取消。"],
+        .appliedCleanupActions: [.english: "Applied %d cleanup actions.", .simplifiedChinese: "已执行 %d 个整理操作。"],
         .buildMap: [.english: "Build Map", .simplifiedChinese: "生成地图"],
         .askAIForPlan: [.english: "Ask AI for Plan", .simplifiedChinese: "让 AI 规划"],
         .localPlan: [.english: "Local Plan", .simplifiedChinese: "本地计划"],

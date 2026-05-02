@@ -19,7 +19,7 @@ struct SidebarView: View {
                 SidebarFilterRow(
                     title: store.t(.aiOrganizer),
                     systemImage: "sparkles.rectangle.stack",
-                    count: store.organizationPlan.recommendations.count,
+                    count: store.cleanupReviewSession.groups.count,
                     isSelected: store.selectedSection == .organizer
                 ) {
                     store.showOrganizer()

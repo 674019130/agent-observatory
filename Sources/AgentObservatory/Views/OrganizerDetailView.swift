@@ -7,7 +7,9 @@ struct OrganizerDetailView: View {
 
     var body: some View {
         Group {
-            if let recommendation = store.selectedOrganizationRecommendation {
+            if let group = store.selectedCleanupGroup {
+                CleanupReviewGroupDetail(group: group)
+            } else if let recommendation = store.selectedOrganizationRecommendation {
                 OrganizerRecommendationDetail(recommendation: recommendation)
             } else if let bucket = store.selectedOrganizationBucket {
                 OrganizerBucketDetail(bucket: bucket)
@@ -20,6 +22,118 @@ struct OrganizerDetailView: View {
             }
         }
         .navigationTitle(store.t(.organizerInspector))
+    }
+}
+
+private struct CleanupReviewGroupDetail: View {
+    @EnvironmentObject private var store: AssetStore
+    let group: CleanupReviewGroup
+
+    private var assets: [AgentAsset] {
+        group.assetPaths.compactMap { path in
+            store.assets.first { $0.path == path }
+        }
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                InspectorPanel(title: store.t(.cleanupReview), systemImage: "checklist") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 8) {
+                            BadgeView(text: L10n.cleanupAction(group.action, language: store.appLanguage), tint: actionTint)
+                            BadgeView(text: L10n.cleanupRisk(group.risk, language: store.appLanguage), tint: riskTint)
+                            CountBadge(count: group.assetPaths.count, tint: .teal)
+                            Spacer()
+                        }
+
+                        Text(group.title)
+                            .font(.title3.weight(.semibold))
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Text(group.summary)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        if group.canApplyAutomatically {
+                            Toggle(
+                                store.t(.approveForApply),
+                                isOn: Binding(
+                                    get: { store.isCleanupGroupApproved(group) },
+                                    set: { store.setCleanupGroupApproved(group, approved: $0) }
+                                )
+                            )
+                            .toggleStyle(.checkbox)
+                        }
+                    }
+                }
+
+                InspectorPanel(title: store.t(.cleanupEvidence), systemImage: "checkmark.seal") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(group.evidence, id: \.self) { evidence in
+                            Label(evidence, systemImage: "checkmark")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+
+                InspectorPanel(title: store.t(.affectedAssets), systemImage: "tray.full") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(assets) { asset in
+                            Button {
+                                store.selectAsset(path: asset.path)
+                            } label: {
+                                OrganizerAssetSummary(asset: asset)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
+                if store.approvedCleanupGroupCount > 0 {
+                    InspectorPanel(title: store.t(.manualFollowUp), systemImage: "play.circle") {
+                        Button {
+                            store.applyApprovedCleanupGroups()
+                        } label: {
+                            Label(store.t(.applyApprovedCleanup), systemImage: "checkmark.circle")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.green)
+                    }
+                }
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        .background(Color(nsColor: .textBackgroundColor))
+    }
+
+    private var actionTint: Color {
+        switch group.action {
+        case .archive:
+            .orange
+        case .hide:
+            .purple
+        case .merge:
+            .blue
+        case .review:
+            .yellow
+        case .keep:
+            .green
+        }
+    }
+
+    private var riskTint: Color {
+        switch group.risk {
+        case .low:
+            .green
+        case .medium:
+            .orange
+        case .high:
+            .red
+        }
     }
 }
 
