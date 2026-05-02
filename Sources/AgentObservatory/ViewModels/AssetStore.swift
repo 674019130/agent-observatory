@@ -544,9 +544,11 @@ final class AssetStore: ObservableObject {
 
     private func recordFileEvents(_ paths: [String]) {
         guard !isScanning else { return }
+        let relevantPaths = ScanSourceEventFilter.relevantEventPaths(paths, sources: activeScanSources)
+        guard !relevantPaths.isEmpty else { return }
         isIndexStale = true
         lastFileEventDate = Date()
-        lastFileEventPaths = paths.map { $0.replacingOccurrences(of: NSHomeDirectory(), with: "~") }
+        lastFileEventPaths = relevantPaths.map { $0.replacingOccurrences(of: NSHomeDirectory(), with: "~") }
         rebuildDashboardSummary()
     }
 
