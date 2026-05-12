@@ -16,20 +16,21 @@ public struct AssetClassifier: Sendable {
         isLarge: Bool,
         unreadable: Bool
     ) -> AgentAsset {
-        let parsed = FrontMatterParser.parse(preview)
+        let contentSensitive = isSensitive || SecretRedactor.containsSecret(preview)
+        let safePreview = isSensitive ? "Sensitive file intentionally not previewed." : SecretRedactor.redact(preview)
+        let parsed = FrontMatterParser.parse(safePreview)
         let title = titleFor(url: url, kind: kind, frontMatter: parsed.frontMatter, body: parsed.body)
         let description = summaryFor(url: url, kind: kind, frontMatter: parsed.frontMatter, body: parsed.body)
-        let dependencies = DependencyExtractor.extract(from: preview)
+        let dependencies = DependencyExtractor.extract(from: safePreview)
         let trigger = triggerFor(url: url, kind: kind, frontMatter: parsed.frontMatter)
-        let redactedPreview = isSensitive ? "Sensitive file intentionally not previewed." : SecretRedactor.redact(preview)
-        let hashInput = "\(url.path)\n\(kind.rawValue)\n\(preview)"
+        let hashInput = "\(url.path)\n\(kind.rawValue)\n\(safePreview)"
 
         var flags: [AssetStatusFlag] = []
-        if isSensitive { flags.append(.secretRisk) }
+        if contentSensitive { flags.append(.secretRisk) }
         if isLarge { flags.append(.largeFile) }
         if unreadable { flags.append(.unreadable) }
         if description == "No summary yet" { flags.append(.needsSummary) }
-        if owner != .claude && preview.contains("~/.claude") { flags.append(.stalePath) }
+        if owner != .claude && safePreview.contains("~/.claude") { flags.append(.stalePath) }
         if !relatedFiles.isEmpty || dependencies.contains(where: { $0.contains("scripts/") || $0.contains("/scripts/") }) {
             flags.append(.hasScripts)
         }
@@ -47,7 +48,7 @@ public struct AssetClassifier: Sendable {
             modifiedAt: modifiedAt,
             byteCount: byteCount,
             contentHash: StableHash.hash(hashInput),
-            preview: redactedPreview,
+            preview: safePreview,
             statusFlags: unique(flags)
         )
     }

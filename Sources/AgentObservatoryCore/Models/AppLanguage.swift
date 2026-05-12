@@ -15,10 +15,26 @@ public enum AppLanguage: String, CaseIterable, Codable, Identifiable, Sendable {
         }
     }
 
-    public static func fromStoredValue(_ value: String?) -> AppLanguage {
+    public static func fromStoredValue(
+        _ value: String?,
+        preferredLanguages: [String] = Locale.preferredLanguages
+    ) -> AppLanguage {
         guard let value, let language = AppLanguage(rawValue: value) else {
-            return .english
+            return systemDefault(preferredLanguages: preferredLanguages)
         }
         return language
+    }
+
+    public static func systemDefault(preferredLanguages: [String] = Locale.preferredLanguages) -> AppLanguage {
+        for preferredLanguage in preferredLanguages {
+            let normalized = preferredLanguage.lowercased()
+            if normalized.hasPrefix("zh-hans") || normalized == "zh_cn" || normalized == "zh-cn" {
+                return .simplifiedChinese
+            }
+            if normalized.hasPrefix("en") {
+                return .english
+            }
+        }
+        return .english
     }
 }

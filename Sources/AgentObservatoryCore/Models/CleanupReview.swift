@@ -55,7 +55,25 @@ public struct CleanupReviewGroup: Identifiable, Codable, Equatable, Sendable {
     }
 
     public var canApplyAutomatically: Bool {
-        action == .archive || action == .hide
+        switch action {
+        case .archive, .hide:
+            true
+        case .merge:
+            assetPaths.count > 1
+        case .review, .keep:
+            false
+        }
+    }
+
+    public var automaticApplyAssetPaths: [String] {
+        switch action {
+        case .archive, .hide:
+            assetPaths
+        case .merge:
+            Array(assetPaths.dropFirst())
+        case .review, .keep:
+            []
+        }
     }
 }
 

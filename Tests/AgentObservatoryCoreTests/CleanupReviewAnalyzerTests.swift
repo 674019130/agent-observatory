@@ -11,7 +11,8 @@ final class CleanupReviewAnalyzerTests: XCTestCase {
         XCTAssertEqual(session.groups.count, 1)
         XCTAssertEqual(session.groups.first?.action, .merge)
         XCTAssertEqual(session.groups.first?.assetPaths.sorted(), [claude.path, codex.path].sorted())
-        XCTAssertFalse(session.groups.first?.canApplyAutomatically ?? true)
+        XCTAssertTrue(session.groups.first?.canApplyAutomatically ?? false)
+        XCTAssertEqual(session.groups.first?.automaticApplyAssetPaths, [claude.path])
     }
 
     func testLegacyCleanupFocusesOnStaleClaudeReferences() {
@@ -43,6 +44,22 @@ final class CleanupReviewAnalyzerTests: XCTestCase {
         XCTAssertEqual(session.groups.first?.action, .hide)
         XCTAssertEqual(Set(session.groups.first?.assetPaths ?? []), Set([sessionAsset.path, unknown.path]))
         XCTAssertTrue(session.groups.first?.canApplyAutomatically ?? false)
+    }
+
+    func testCleanupReviewCanRenderChineseGroupCopy() {
+        let sessionAsset = asset(path: "/tmp/.codex/sessions/old.jsonl", owner: .codex, kind: .session, title: "old")
+        let unknown = asset(path: "/tmp/project/tmp.txt", owner: .project, kind: .unknown, title: "tmp")
+
+        let session = CleanupReviewAnalyzer().session(
+            goal: .noiseCleanup,
+            assets: [sessionAsset, unknown],
+            language: .simplifiedChinese
+        )
+
+        let group = session.groups.first
+        XCTAssertTrue(group?.title.contains("隐藏") ?? false)
+        XCTAssertTrue(group?.summary.contains("可恢复") ?? false)
+        XCTAssertTrue(group?.evidence.contains { $0.contains("隐藏") } ?? false)
     }
 
     private func asset(

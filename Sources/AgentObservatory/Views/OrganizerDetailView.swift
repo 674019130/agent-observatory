@@ -170,14 +170,20 @@ private struct OrganizerRecommendationDetail: View {
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
 
-                        Toggle(
-                            store.t(.approveForApply),
-                            isOn: Binding(
-                                get: { store.isOrganizationRecommendationApproved(recommendation) },
-                                set: { store.setOrganizationRecommendationApproved(recommendation, approved: $0) }
+                        if recommendation.canApplyAutomatically {
+                            Toggle(
+                                store.t(.approveForApply),
+                                isOn: Binding(
+                                    get: { store.isOrganizationRecommendationApproved(recommendation) },
+                                    set: { store.setOrganizationRecommendationApproved(recommendation, approved: $0) }
+                                )
                             )
-                        )
-                        .toggleStyle(.checkbox)
+                            .toggleStyle(.checkbox)
+                        } else {
+                            Label(store.t(.manualRecommendationRequired), systemImage: "person.crop.circle.badge.checkmark")
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
 
@@ -232,19 +238,21 @@ private struct OrganizerRecommendationDetail: View {
                 }
 
                 InspectorPanel(title: store.t(.manualFollowUp), systemImage: "person.crop.circle.badge.checkmark") {
-                    Text(store.t(.manualOnlyNotice))
+                    Text(recommendation.canApplyAutomatically ? store.t(.manualOnlyNotice) : store.t(.manualRecommendationRequiredMessage))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Button {
-                        store.applyApprovedOrganizationActions()
-                    } label: {
-                        Label(store.t(.applyApproved), systemImage: "checkmark.circle")
+                    if recommendation.canApplyAutomatically || store.approvedExecutableOrganizationRecommendationCount > 0 {
+                        Button {
+                            store.applyApprovedOrganizationActions()
+                        } label: {
+                            Label(store.t(.applyApproved), systemImage: "checkmark.circle")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.green)
+                        .disabled(store.approvedExecutableOrganizationRecommendationCount == 0 || store.isOrganizing)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.green)
-                    .disabled(store.approvedOrganizationRecommendationCount == 0 || store.isOrganizing)
                 }
             }
             .padding(18)

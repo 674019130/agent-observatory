@@ -6,51 +6,47 @@ struct SidebarView: View {
 
     var body: some View {
         List {
-            Section {
+            Section(store.t(.contextBrowser)) {
                 SidebarFilterRow(
-                    title: store.t(.dashboard),
-                    systemImage: "gauge.with.dots.needle.67percent",
-                    count: store.dashboardSummary.topRisks.count,
-                    isSelected: store.selectedSection == .dashboard
+                    title: store.t(.overview),
+                    systemImage: "rectangle.3.group",
+                    count: store.visibleAssets.count,
+                    isSelected: store.selectedSection == .contextOverview
                 ) {
-                    store.showDashboard()
+                    store.showContextOverview()
                 }
 
                 SidebarFilterRow(
-                    title: store.t(.aiOrganizer),
-                    systemImage: "sparkles.rectangle.stack",
-                    count: store.cleanupReviewSession.groups.count,
-                    isSelected: store.selectedSection == .organizer
+                    title: store.t(.memories),
+                    systemImage: "brain.head.profile",
+                    count: store.contextCatalog.memoryItems.count,
+                    isSelected: store.selectedSection == .memories
                 ) {
-                    store.showOrganizer()
+                    store.showMemories()
+                }
+
+                SidebarFilterRow(
+                    title: store.t(.capabilities),
+                    systemImage: "wand.and.stars",
+                    count: store.contextCatalog.capabilityItems.count,
+                    isSelected: store.selectedSection == .capabilities
+                ) {
+                    store.showCapabilities()
+                }
+
+                SidebarFilterRow(
+                    title: store.t(.assembly),
+                    systemImage: "point.3.connected.trianglepath.dotted",
+                    count: store.contextCatalog.assemblySteps.count,
+                    isSelected: store.selectedSection == .assembly
+                ) {
+                    store.showAssembly()
                 }
             }
 
-            Section(store.t(.management)) {
+            Section(store.t(.surfaces)) {
                 SidebarFilterRow(
-                    title: store.t(.archive),
-                    systemImage: "archivebox",
-                    count: store.archivedAssetCount,
-                    isSelected: store.selectedSection == .archive
-                ) {
-                    store.showArchive()
-                }
-
-                if store.hiddenAssetCount > 0 {
-                    SidebarFilterRow(
-                        title: store.t(.hiddenItems),
-                        systemImage: "eye.slash",
-                        count: store.hiddenAssetCount,
-                        isSelected: store.selectedSection == .hidden
-                    ) {
-                        store.showHidden()
-                    }
-                }
-            }
-
-            Section(store.t(.sources)) {
-                SidebarFilterRow(
-                    title: store.t(.allSources),
+                    title: store.t(.allFiles),
                     systemImage: "square.grid.2x2",
                     count: store.visibleAssets.count,
                     isSelected: store.selectedSection == .assets && store.selectedOwner == nil
@@ -70,46 +66,33 @@ struct SidebarView: View {
                 }
             }
 
-            Section(store.t(.categories)) {
+            Section(store.t(.management)) {
                 SidebarFilterRow(
-                    title: store.t(.allCategories),
-                    systemImage: "tray.full",
-                    count: store.visibleAssets.count,
-                    isSelected: store.selectedSection == .assets && store.selectedKind == nil
+                    title: store.t(.aiOrganizer),
+                    systemImage: "sparkles.rectangle.stack",
+                    count: store.cleanupReviewSession.groups.count,
+                    isSelected: store.selectedSection == .organizer
                 ) {
-                    store.select(kind: nil)
+                    store.showOrganizer()
                 }
 
-                ForEach(AssetKind.allCases.filter { $0 != .unknown }) { kind in
-                    SidebarFilterRow(
-                        title: kind.rawValue,
-                        systemImage: icon(for: kind),
-                        count: store.summary.kinds[kind, default: 0],
-                        isSelected: store.selectedSection == .assets && store.selectedKind == kind
-                    ) {
-                        store.select(kind: kind)
-                    }
-                }
-            }
-
-            Section(store.t(.health)) {
                 SidebarFilterRow(
-                    title: store.t(.allWarnings),
-                    systemImage: "exclamationmark.triangle",
-                    count: store.summary.warnings,
-                    isSelected: store.selectedSection == .assets && store.selectedHealth == .warnings
+                    title: store.t(.archive),
+                    systemImage: "archivebox",
+                    count: store.archivedAssetCount,
+                    isSelected: store.selectedSection == .archive
                 ) {
-                    store.select(health: store.selectedHealth == .warnings ? nil : .warnings)
+                    store.showArchive()
                 }
 
-                ForEach(HealthFilter.allCases.filter { $0 != .warnings }) { filter in
+                if store.hiddenAssetCount > 0 {
                     SidebarFilterRow(
-                        title: filter.title(language: store.appLanguage),
-                        systemImage: filter.systemImage,
-                        count: store.healthCount(for: filter),
-                        isSelected: store.selectedSection == .assets && store.selectedHealth == filter
+                        title: store.t(.hiddenItems),
+                        systemImage: "eye.slash",
+                        count: store.hiddenAssetCount,
+                        isSelected: store.selectedSection == .hidden
                     ) {
-                        store.select(health: store.selectedHealth == filter ? nil : filter)
+                        store.showHidden()
                     }
                 }
             }

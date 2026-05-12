@@ -91,6 +91,12 @@ Build and verify that the app launches:
 ./script/build_and_run.sh --verify
 ```
 
+Package a local release zip:
+
+```bash
+./script/package_release.sh v0.1.0
+```
+
 ## What It Finds
 
 Agent Observatory looks for local agent assets such as:
@@ -148,6 +154,7 @@ swift build
 swift test
 ./script/build_and_run.sh
 ./script/build_and_run.sh --verify
+./script/package_release.sh v0.1.0
 ```
 
 The app bundle is created at:
@@ -159,10 +166,9 @@ dist/AgentObservatory.app
 ## Roadmap
 
 - Dependency graph visualization
-- Safer bulk-management confirmation flows
 - Per-source scan presets
 - Import/export for management state
-- Better release packaging and notarization
+- Developer ID signing and notarization
 
 ## License
 

@@ -33,24 +33,45 @@ struct ArchiveView: View {
                     .padding(.top, 12)
             }
 
-            if archivedAssets.isEmpty {
-                EmptyStateView(
-                    title: store.t(.noArchivedAssets),
-                    message: store.t(.noArchivedAssetsMessage),
-                    systemImage: "archivebox"
-                )
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 10) {
+            ScrollView {
+                LazyVStack(spacing: 14) {
+                    if !store.managementOperationBatches.isEmpty {
+                        ManagementOperationHistorySection()
+                    }
+
+                    if archivedAssets.isEmpty {
+                        ArchiveEmptyPanel()
+                    } else {
                         ForEach(archivedAssets) { archivedAsset in
                             ArchivedAssetRow(archivedAsset: archivedAsset)
                         }
                     }
-                    .padding(16)
                 }
+                .padding(16)
             }
         }
         .navigationTitle(store.t(.archive))
+    }
+}
+
+private struct ArchiveEmptyPanel: View {
+    @EnvironmentObject private var store: AssetStore
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "archivebox")
+                .font(.system(size: 34))
+                .foregroundStyle(.secondary)
+            Text(store.t(.noArchivedAssets))
+                .font(.title3.weight(.semibold))
+            Text(store.t(.noArchivedAssetsMessage))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 

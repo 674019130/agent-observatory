@@ -79,6 +79,29 @@ final class OrganizationAnalyzerTests: XCTestCase {
         XCTAssertTrue(plan.recommendations.allSatisfy { !$0.isApprovedByDefault })
     }
 
+    func testMapAndRecommendationsCanRenderChineseCopy() {
+        let stale = asset(
+            path: "/tmp/.codex/skills/migrated/SKILL.md",
+            owner: .codex,
+            kind: .skill,
+            title: "migrated",
+            summary: "Migrated skill",
+            statusFlags: [.stalePath]
+        )
+
+        let analyzer = OrganizationAnalyzer()
+        let map = analyzer.map(assets: [stale], aiSummaries: [:], language: .simplifiedChinese)
+        let plan = analyzer.recommendations(for: map, assets: [stale], language: .simplifiedChinese)
+
+        XCTAssertEqual(map.audienceCounts["Codex"], 1)
+        XCTAssertTrue(map.buckets.first?.summary.contains("资产") ?? false)
+        XCTAssertTrue(plan.recommendations.contains { recommendation in
+            recommendation.title.contains("检查")
+                && recommendation.reason.contains("Claude")
+                && recommendation.reason.contains("迁移")
+        })
+    }
+
     private func asset(
         path: String,
         owner: AgentOwner,

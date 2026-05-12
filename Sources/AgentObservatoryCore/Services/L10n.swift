@@ -17,6 +17,7 @@ public enum L10n {
         case sources
         case sourcesDescription
         case addFolder
+        case addWorkspaceMemoryFolder
         case resetDefaults
         case custom
         case exists
@@ -31,6 +32,9 @@ public enum L10n {
         case customModel
         case baseURL
         case openAIBaseURLDescription
+        case aiAuditTrail
+        case noAIAuditRecords
+        case aiAuditPrivacyNote
         case save
         case management
         case archiveLocation
@@ -40,6 +44,91 @@ public enum L10n {
         case unhideAll
         case dashboard
         case aiOrganizer
+        case contextBrowser
+        case contextBrowserSubtitle
+        case memories
+        case capabilities
+        case assembly
+        case allFiles
+        case surfaces
+        case claudeCode
+        case sharedAgents
+        case memoryDomain
+        case capabilityDomain
+        case finalContext
+        case viewMemories
+        case viewCapabilities
+        case viewAssembly
+        case contextDetailPlaceholder
+        case contextDetailPlaceholderMessage
+        case longTermMemory
+        case projectMemory
+        case workspaceMemory
+        case sharedContext
+        case pluginProvidedContext
+        case configurationContext
+        case sessionContext
+        case contextLayerGlobal
+        case contextLayerProject
+        case contextLayerWorkspace
+        case contextRoleMemory
+        case contextRoleCapability
+        case usedBy
+        case layer
+        case noContextItems
+        case memoryTypeOverview
+        case chooseMemoryType
+        case showingItems
+        case showMore
+        case assembledFor
+        case contextPipelineEmpty
+        case advisorTitle
+        case advisorSubtitle
+        case advancedDetails
+        case configurationBrief
+        case currentShape
+        case priorityFocus
+        case recommendedNextStep
+        case runRecommendedReview
+        case organizeNow
+        case organizerRunReady
+        case organizerRunScanning
+        case organizerRunReviewTitle
+        case organizerRunReviewSubtitle
+        case organizerRunCurrentState
+        case organizerRunActionPacks
+        case organizerRunNoActions
+        case organizerRunAgreeAndApply
+        case organizerRunViewDetails
+        case organizerRunReversible
+        case organizerRunManualReview
+        case organizerRunAutomatic
+        case organizerRunProtected
+        case organizerRunReviewPack
+        case actionPackReviewTitle
+        case actionPackReviewSubtitle
+        case copyAffectedPaths
+        case openFirstAffectedFile
+        case sensitiveActionGuidance
+        case unreadableActionGuidance
+        case clarifyActionGuidance
+        case stalePathActionGuidance
+        case moreCleanupActions
+        case presetRecommendedDescription
+        case presetClassify
+        case presetCopyBrief
+        case organizerBriefCopied
+        case cleanupPreviewTitle
+        case cleanupPreviewSubtitle
+        case cleanupPreviewAgree
+        case cleanupPreviewDone
+        case cleanupPreviewNoAutomaticChanges
+        case cleanupPreviewManualOnly
+        case cleanupPreviewWillHide
+        case cleanupPreviewWillMerge
+        case cleanupPreviewWillArchive
+        case cleanupPreviewManualGroups
+        case aiPlanNotes
         case organizerSubtitle
         case organizerDetailMessage
         case organizerInspector
@@ -50,6 +139,10 @@ public enum L10n {
         case openPrimaryAsset
         case approveForApply
         case manualFollowUp
+        case manualRecommendationRequired
+        case manualRecommendationRequiredMessage
+        case noExecutableApprovedActions
+        case mergedIntoArchiveReason
         case affectedAssets
         case cleanupReview
         case cleanupReviewSubtitle
@@ -93,8 +186,23 @@ public enum L10n {
         case localPlanReady
         case aiPlanReady
         case aiPlanFailedUsingLocal
+        case aiPlanErrorPrefix
         case openAIKeyRequiredForOrganizer
         case appliedOrganizationActions
+        case sensitiveFilesNotSentToOpenAI
+        case archivedFileStatus
+        case restoredFileStatus
+        case hiddenFileStatus
+        case unhiddenFileStatus
+        case latestOperation
+        case operationHistory
+        case operationResult
+        case noOperationHistory
+        case undoLatestOperation
+        case operationBatchApplied
+        case operationBatchUndone
+        case operationUndoNotAvailable
+        case affectedFiles
         case assets
         case archive
         case allSources
@@ -143,6 +251,12 @@ public enum L10n {
         case metadata
         case diagnostics
         case rawContent
+        case rawSensitiveFileHidden
+        case showRedactedLocalPreview
+        case redactedLocalPreviewNote
+        case rawLargeFileRequiresExplicitLoad
+        case rawFileTooLargeForInline
+        case rawUnableToReadFile
         case explainWithOpenAI
         case loadFullContent
         case indexHealth
@@ -395,6 +509,21 @@ public enum L10n {
         }
     }
 
+    public static func planSource(_ source: String, language: AppLanguage) -> String {
+        switch source.lowercased() {
+        case "openai + local":
+            language == .simplifiedChinese ? "OpenAI + 本地" : "OpenAI + local"
+        case "openai":
+            "OpenAI"
+        case "local":
+            language == .simplifiedChinese ? "本地" : "Local"
+        case "empty":
+            language == .simplifiedChinese ? "空" : "Empty"
+        default:
+            source
+        }
+    }
+
     public static func cleanupGoal(_ goal: CleanupReviewGoal, language: AppLanguage) -> String {
         switch (goal, language) {
         case (.fullReview, .simplifiedChinese): "完整整理"
@@ -418,6 +547,141 @@ public enum L10n {
     }
 
     public static func cleanupRisk(_ risk: CleanupReviewRisk, language: AppLanguage) -> String {
+        switch (risk, language) {
+        case (.low, .simplifiedChinese): "低风险"
+        case (.medium, .simplifiedChinese): "中风险"
+        case (.high, .simplifiedChinese): "高风险"
+        case (.low, _): "Low risk"
+        case (.medium, _): "Medium risk"
+        case (.high, _): "High risk"
+        }
+    }
+
+    public static func memoryType(_ type: AgentMemoryType, language: AppLanguage) -> String {
+        switch (type, language) {
+        case (.longTerm, .simplifiedChinese): "长期记忆"
+        case (.project, .simplifiedChinese): "项目记忆"
+        case (.workspace, .simplifiedChinese): "工作区记忆"
+        case (.automation, .simplifiedChinese): "自动化记忆"
+        case (.preference, .simplifiedChinese): "偏好与工具记忆"
+        case (.sessionHistory, .simplifiedChinese): "会话历史"
+        case (.shared, .simplifiedChinese): "共享记忆"
+        case (.instructions, .simplifiedChinese): "入口指令"
+        case (.contextRules, .simplifiedChinese): "上下文规则"
+        case (.pluginProvided, .simplifiedChinese): "插件注入上下文"
+        case (.longTerm, _): "Long-term Memory"
+        case (.project, _): "Project Memory"
+        case (.workspace, _): "Workspace Memory"
+        case (.automation, _): "Automation Memory"
+        case (.preference, _): "Preference and Tool Memory"
+        case (.sessionHistory, _): "Session History"
+        case (.shared, _): "Shared Memory"
+        case (.instructions, _): "Entry Instructions"
+        case (.contextRules, _): "Context Rules"
+        case (.pluginProvided, _): "Plugin-injected Context"
+        }
+    }
+
+    public static func memoryTypeDescription(_ type: AgentMemoryType, language: AppLanguage) -> String {
+        switch (type, language) {
+        case (.longTerm, .simplifiedChinese): "跨会话保留的长期事实、总结和原始记忆。"
+        case (.project, .simplifiedChinese): "按项目或当前仓库生效的 CLAUDE、AGENTS 与 project memory。"
+        case (.workspace, .simplifiedChinese): "按工作区或 workspace 目录生效的上下文。"
+        case (.automation, .simplifiedChinese): "定时任务、自动化流程自己保存的运行记忆。"
+        case (.preference, .simplifiedChinese): "用户偏好、常用工具和工作流选择。"
+        case (.sessionHistory, .simplifiedChinese): "会话总结、rollout summary、plans 和历史记录。"
+        case (.shared, .simplifiedChinese): "Claude Code 与 Codex 都可能复用的共享 agent 上下文。"
+        case (.instructions, .simplifiedChinese): "入口级系统说明、AGENTS.md、CLAUDE.md。"
+        case (.contextRules, .simplifiedChinese): "规则文件、设计规范和运行时约束。"
+        case (.pluginProvided, .simplifiedChinese): "插件、市场和 skill 包注入的说明性上下文。"
+        case (.longTerm, _): "Durable facts, summaries, and raw memory retained across sessions."
+        case (.project, _): "Project-scoped CLAUDE, AGENTS, and project memory files."
+        case (.workspace, _): "Workspace-scoped context from workspace folders."
+        case (.automation, _): "Memory owned by scheduled automations and recurring workflows."
+        case (.preference, _): "User preferences, favorite tools, and workflow choices."
+        case (.sessionHistory, _): "Session summaries, rollout summaries, plans, and history."
+        case (.shared, _): "Shared agent context that Claude Code and Codex can both reuse."
+        case (.instructions, _): "Entry-level instructions such as AGENTS.md and CLAUDE.md."
+        case (.contextRules, _): "Rule files, design rules, and runtime constraints."
+        case (.pluginProvided, _): "Instructional context injected by plugins, marketplaces, and skill bundles."
+        }
+    }
+
+    public static func managementOperationKind(_ kind: ManagementOperationKind, language: AppLanguage) -> String {
+        switch (kind, language) {
+        case (.hide, .simplifiedChinese): "隐藏"
+        case (.archive, .simplifiedChinese): "归档"
+        case (.mergeArchive, .simplifiedChinese): "合并归档"
+        case (.hide, _): "Hide"
+        case (.archive, _): "Archive"
+        case (.mergeArchive, _): "Merge archive"
+        }
+    }
+
+    public static func managementOperationStatus(_ status: ManagementOperationStatus, language: AppLanguage) -> String {
+        switch (status, language) {
+        case (.applied, .simplifiedChinese): "已执行"
+        case (.failed, .simplifiedChinese): "失败"
+        case (.undone, .simplifiedChinese): "已撤销"
+        case (.undoFailed, .simplifiedChinese): "撤销失败"
+        case (.applied, _): "Applied"
+        case (.failed, _): "Failed"
+        case (.undone, _): "Undone"
+        case (.undoFailed, _): "Undo failed"
+        }
+    }
+
+    public static func managementOperationSource(_ source: ManagementOperationSource, language: AppLanguage) -> String {
+        switch (source, language) {
+        case (.manual, .simplifiedChinese): "手动"
+        case (.cleanupReview, .simplifiedChinese): "整理审查"
+        case (.aiOrganizer, .simplifiedChinese): "AI 整理器"
+        case (.manual, _): "Manual"
+        case (.cleanupReview, _): "Cleanup review"
+        case (.aiOrganizer, _): "AI organizer"
+        }
+    }
+
+    public static func aiAuditOperation(_ operation: AIAuditOperation, language: AppLanguage) -> String {
+        switch (operation, language) {
+        case (.assetExplanation, .simplifiedChinese): "文件解释"
+        case (.organizationPlan, .simplifiedChinese): "整理规划"
+        case (.assetExplanation, _): "Asset explanation"
+        case (.organizationPlan, _): "Organization plan"
+        }
+    }
+
+    public static func aiAuditStatus(_ status: AIAuditStatus, language: AppLanguage) -> String {
+        switch (status, language) {
+        case (.started, .simplifiedChinese): "进行中"
+        case (.succeeded, .simplifiedChinese): "成功"
+        case (.failed, .simplifiedChinese): "失败"
+        case (.cancelled, .simplifiedChinese): "已取消"
+        case (.started, _): "Started"
+        case (.succeeded, _): "Succeeded"
+        case (.failed, _): "Failed"
+        case (.cancelled, _): "Cancelled"
+        }
+    }
+
+    public static func organizerActionPackKind(_ kind: OrganizerActionPackKind, language: AppLanguage) -> String {
+        switch (kind, language) {
+        case (.mergeDuplicates, .simplifiedChinese): "合并重复"
+        case (.hideNoise, .simplifiedChinese): "隐藏噪音"
+        case (.reviewSensitive, .simplifiedChinese): "保护敏感文件"
+        case (.reviewUnreadable, .simplifiedChinese): "检查不可读文件"
+        case (.clarifyUnknown, .simplifiedChinese): "澄清说明"
+        case (.reviewStalePaths, .simplifiedChinese): "复核旧路径"
+        case (.mergeDuplicates, _): "Merge duplicates"
+        case (.hideNoise, _): "Hide noise"
+        case (.reviewSensitive, _): "Protect sensitive files"
+        case (.reviewUnreadable, _): "Check unreadable files"
+        case (.clarifyUnknown, _): "Clarify descriptions"
+        case (.reviewStalePaths, _): "Review stale paths"
+        }
+    }
+
+    public static func organizerActionPackRisk(_ risk: OrganizerActionPackRisk, language: AppLanguage) -> String {
         switch (risk, language) {
         case (.low, .simplifiedChinese): "低风险"
         case (.medium, .simplifiedChinese): "中风险"
@@ -459,6 +723,7 @@ public enum L10n {
         .sources: [.english: "Sources", .simplifiedChinese: "扫描源"],
         .sourcesDescription: [.english: "Only enabled sources are scanned. Missing paths stay visible so you can see what the app expected to find.", .simplifiedChinese: "只扫描启用的来源。缺失路径仍会显示，方便你知道应用预期扫描哪些位置。"],
         .addFolder: [.english: "Add Folder", .simplifiedChinese: "添加文件夹"],
+        .addWorkspaceMemoryFolder: [.english: "Add Workspace Memory Folder", .simplifiedChinese: "添加工作区记忆文件夹"],
         .resetDefaults: [.english: "Reset Defaults", .simplifiedChinese: "恢复默认"],
         .custom: [.english: "Custom", .simplifiedChinese: "自定义"],
         .exists: [.english: "Exists", .simplifiedChinese: "存在"],
@@ -473,6 +738,9 @@ public enum L10n {
         .customModel: [.english: "Custom", .simplifiedChinese: "自定义"],
         .baseURL: [.english: "Base URL", .simplifiedChinese: "Base URL"],
         .openAIBaseURLDescription: [.english: "Use https://api.openai.com/v1 for OpenAI. The app appends /responses automatically.", .simplifiedChinese: "OpenAI 默认使用 https://api.openai.com/v1。应用会自动拼接 /responses。"],
+        .aiAuditTrail: [.english: "AI Audit Trail", .simplifiedChinese: "AI 审计记录"],
+        .noAIAuditRecords: [.english: "No AI requests recorded yet.", .simplifiedChinese: "尚未记录 AI 请求。"],
+        .aiAuditPrivacyNote: [.english: "Audit records keep model, endpoint, status, and counts only. Prompts and file contents are not stored.", .simplifiedChinese: "审计记录只保存模型、端点、状态和数量，不保存 prompt 或文件内容。"],
         .save: [.english: "Save", .simplifiedChinese: "保存"],
         .management: [.english: "Management", .simplifiedChinese: "管理"],
         .archiveLocation: [.english: "Archive Location", .simplifiedChinese: "归档位置"],
@@ -482,6 +750,91 @@ public enum L10n {
         .unhideAll: [.english: "Unhide All", .simplifiedChinese: "全部取消隐藏"],
         .dashboard: [.english: "Dashboard", .simplifiedChinese: "仪表盘"],
         .aiOrganizer: [.english: "AI Organizer", .simplifiedChinese: "AI 整理器"],
+        .contextBrowser: [.english: "Context Browser", .simplifiedChinese: "上下文浏览器"],
+        .contextBrowserSubtitle: [.english: "See what Claude Code and Codex remember, which capabilities they can call, and how those pieces assemble into the final agent context.", .simplifiedChinese: "查看 Claude Code 和 Codex 记住了什么、能调用哪些能力，以及这些内容如何组装成最终上下文。"],
+        .memories: [.english: "Memories", .simplifiedChinese: "记忆"],
+        .capabilities: [.english: "Capabilities", .simplifiedChinese: "能力"],
+        .assembly: [.english: "Assembly", .simplifiedChinese: "组装"],
+        .allFiles: [.english: "All Files", .simplifiedChinese: "全部文件"],
+        .surfaces: [.english: "Surfaces", .simplifiedChinese: "工具域"],
+        .claudeCode: [.english: "Claude Code", .simplifiedChinese: "Claude Code"],
+        .sharedAgents: [.english: "Shared Agents", .simplifiedChinese: "共享 Agents"],
+        .memoryDomain: [.english: "Memory Domain", .simplifiedChinese: "记忆域"],
+        .capabilityDomain: [.english: "Capability Domain", .simplifiedChinese: "能力域"],
+        .finalContext: [.english: "Final Context", .simplifiedChinese: "最终上下文"],
+        .viewMemories: [.english: "View Memories", .simplifiedChinese: "查看记忆"],
+        .viewCapabilities: [.english: "View Capabilities", .simplifiedChinese: "查看能力"],
+        .viewAssembly: [.english: "View Assembly", .simplifiedChinese: "查看组装"],
+        .contextDetailPlaceholder: [.english: "Select a context item", .simplifiedChinese: "选择一个上下文项目"],
+        .contextDetailPlaceholderMessage: [.english: "Choose a memory, skill, plugin, command, or assembly item to inspect its source file.", .simplifiedChinese: "选择一条记忆、skill、插件、command 或组装项目后，在这里检查源文件。"],
+        .longTermMemory: [.english: "Long-term Memory", .simplifiedChinese: "长期记忆"],
+        .projectMemory: [.english: "Project Memory", .simplifiedChinese: "项目记忆"],
+        .workspaceMemory: [.english: "Workspace Memory", .simplifiedChinese: "工作区记忆"],
+        .sharedContext: [.english: "Shared Context", .simplifiedChinese: "共享上下文"],
+        .pluginProvidedContext: [.english: "Plugin-provided Context", .simplifiedChinese: "插件提供的上下文"],
+        .configurationContext: [.english: "Configuration", .simplifiedChinese: "配置"],
+        .sessionContext: [.english: "Session Context", .simplifiedChinese: "会话上下文"],
+        .contextLayerGlobal: [.english: "Global Context", .simplifiedChinese: "全局上下文"],
+        .contextLayerProject: [.english: "Project Context", .simplifiedChinese: "项目上下文"],
+        .contextLayerWorkspace: [.english: "Workspace Context", .simplifiedChinese: "工作区上下文"],
+        .contextRoleMemory: [.english: "Memory", .simplifiedChinese: "记忆"],
+        .contextRoleCapability: [.english: "Capability", .simplifiedChinese: "能力"],
+        .usedBy: [.english: "Used by", .simplifiedChinese: "使用者"],
+        .layer: [.english: "Layer", .simplifiedChinese: "层级"],
+        .noContextItems: [.english: "No matching context items.", .simplifiedChinese: "没有匹配的上下文项目。"],
+        .memoryTypeOverview: [.english: "Memory Types", .simplifiedChinese: "记忆类型"],
+        .chooseMemoryType: [.english: "Choose a type, then inspect only that bucket.", .simplifiedChinese: "先选类型，再只查看这一类。"],
+        .showingItems: [.english: "Showing %d of %d items", .simplifiedChinese: "显示 %d / %d 项"],
+        .showMore: [.english: "Show More", .simplifiedChinese: "显示更多"],
+        .assembledFor: [.english: "Assembled for", .simplifiedChinese: "组装给"],
+        .contextPipelineEmpty: [.english: "No context pipeline yet. Refresh the index to scan enabled sources.", .simplifiedChinese: "尚无上下文组装链路。刷新索引以扫描启用来源。"],
+        .advisorTitle: [.english: "AI Organization Advisor", .simplifiedChinese: "AI 整理顾问"],
+        .advisorSubtitle: [.english: "Start with one recommended cleanup. The app explains the changes before anything is applied.", .simplifiedChinese: "从一次推荐整理开始。应用会先说明改动，再由你确认执行。"],
+        .advancedDetails: [.english: "Advanced Details", .simplifiedChinese: "高级细节"],
+        .configurationBrief: [.english: "Configuration Brief", .simplifiedChinese: "配置概览"],
+        .currentShape: [.english: "Current Shape", .simplifiedChinese: "当前结构"],
+        .priorityFocus: [.english: "Priority Focus", .simplifiedChinese: "优先关注"],
+        .recommendedNextStep: [.english: "Recommended", .simplifiedChinese: "推荐"],
+        .runRecommendedReview: [.english: "Recommended Cleanup", .simplifiedChinese: "推荐整理"],
+        .organizeNow: [.english: "Organize Now", .simplifiedChinese: "整理一下"],
+        .organizerRunReady: [.english: "Organizer plan ready.", .simplifiedChinese: "整理计划已准备好。"],
+        .organizerRunScanning: [.english: "Scanning enabled sources before preparing the organizer plan.", .simplifiedChinese: "正在先扫描启用来源，然后准备整理计划。"],
+        .organizerRunReviewTitle: [.english: "Review Organizer Plan", .simplifiedChinese: "查看整理计划"],
+        .organizerRunReviewSubtitle: [.english: "These are the changes the app can make after one approval.", .simplifiedChinese: "这是应用在一次确认后可以执行的改动。"],
+        .organizerRunCurrentState: [.english: "Current State", .simplifiedChinese: "当前状态"],
+        .organizerRunActionPacks: [.english: "Action Packs", .simplifiedChinese: "行动包"],
+        .organizerRunNoActions: [.english: "No automatic action packs. Review the details manually.", .simplifiedChinese: "没有可自动执行的行动包，请人工查看细节。"],
+        .organizerRunAgreeAndApply: [.english: "Agree and Apply", .simplifiedChinese: "同意执行"],
+        .organizerRunViewDetails: [.english: "View Details", .simplifiedChinese: "查看细节"],
+        .organizerRunReversible: [.english: "Reversible", .simplifiedChinese: "可撤销"],
+        .organizerRunManualReview: [.english: "Manual review", .simplifiedChinese: "人工复核"],
+        .organizerRunAutomatic: [.english: "Automatic", .simplifiedChinese: "自动执行"],
+        .organizerRunProtected: [.english: "Protected", .simplifiedChinese: "受保护"],
+        .organizerRunReviewPack: [.english: "Review", .simplifiedChinese: "复核"],
+        .actionPackReviewTitle: [.english: "Manual Review", .simplifiedChinese: "人工复核"],
+        .actionPackReviewSubtitle: [.english: "These items are protected. The app will not change them automatically.", .simplifiedChinese: "这些项目受保护，应用不会自动改动。"],
+        .copyAffectedPaths: [.english: "Copy Paths", .simplifiedChinese: "复制路径"],
+        .openFirstAffectedFile: [.english: "Open First File", .simplifiedChinese: "打开第一个文件"],
+        .sensitiveActionGuidance: [.english: "Open the files one by one to confirm permissions, contents, and whether they should stay visible. Sensitive content is not sent to AI.", .simplifiedChinese: "逐个打开文件，确认权限、内容以及是否需要继续保留可见。敏感内容不会发送给 AI。"],
+        .unreadableActionGuidance: [.english: "The scanner could not read these files. Reveal them in Finder or copy the paths, then check permissions or whether the files still exist.", .simplifiedChinese: "扫描器无法读取这些文件。可以在 Finder 中定位或复制路径，再检查权限或文件是否仍存在。"],
+        .clarifyActionGuidance: [.english: "Open each file and add a clearer summary, description, or name before deciding whether it should be archived or merged.", .simplifiedChinese: "逐个打开文件，先补充更清晰的 summary、description 或名称，再决定是否归档或合并。"],
+        .stalePathActionGuidance: [.english: "Open each file and inspect stale path references. Migrate the references or archive the file only after manual confirmation.", .simplifiedChinese: "逐个打开文件检查旧路径引用。确认后再迁移引用或归档文件。"],
+        .moreCleanupActions: [.english: "More", .simplifiedChinese: "更多"],
+        .presetRecommendedDescription: [.english: "Review the planned changes, then approve once.", .simplifiedChinese: "先看计划改动，再一次确认执行。"],
+        .presetClassify: [.english: "View Classification Map", .simplifiedChinese: "查看分类地图"],
+        .presetCopyBrief: [.english: "Copy Diagnosis Brief", .simplifiedChinese: "复制诊断简报"],
+        .organizerBriefCopied: [.english: "Diagnosis brief copied to clipboard.", .simplifiedChinese: "诊断简报已复制到剪贴板。"],
+        .cleanupPreviewTitle: [.english: "Ready to Apply", .simplifiedChinese: "准备执行"],
+        .cleanupPreviewSubtitle: [.english: "Review what will happen. Nothing changes until you agree.", .simplifiedChinese: "先看清楚会发生什么。点同意前不会改动文件。"],
+        .cleanupPreviewAgree: [.english: "Agree and Apply", .simplifiedChinese: "同意并执行"],
+        .cleanupPreviewDone: [.english: "Done", .simplifiedChinese: "完成"],
+        .cleanupPreviewNoAutomaticChanges: [.english: "No automatic file changes. The review queue is ready for manual inspection.", .simplifiedChinese: "不会自动改动文件。复核队列已准备好，供你人工查看。"],
+        .cleanupPreviewManualOnly: [.english: "Review queue ready. No automatic file changes were applied.", .simplifiedChinese: "复核队列已准备好，没有自动改动文件。"],
+        .cleanupPreviewWillHide: [.english: "Hide %d low-signal items from the active view.", .simplifiedChinese: "从活跃视图隐藏 %d 个低信号项目。"],
+        .cleanupPreviewWillMerge: [.english: "Merge duplicates by keeping primary files and archiving %d related duplicates.", .simplifiedChinese: "执行合并：保留主文件，并归档 %d 个相关重复项。"],
+        .cleanupPreviewWillArchive: [.english: "Archive %d files so they can be restored later.", .simplifiedChinese: "归档 %d 个文件，之后可恢复。"],
+        .cleanupPreviewManualGroups: [.english: "%d groups will remain for manual review.", .simplifiedChinese: "%d 个分组会保留为人工复核。"],
+        .aiPlanNotes: [.english: "AI Plan Notes", .simplifiedChinese: "AI 规划备注"],
         .organizerSubtitle: [.english: "Map local agent assets, ask AI for conservative cleanup advice, then approve exactly what should be applied.", .simplifiedChinese: "先映射本地 agent 资产，再让 AI 给出保守整理建议，最后只执行你明确批准的操作。"],
         .organizerDetailMessage: [.english: "Use the center pane to build a map, generate a plan, and approve archive or hide actions.", .simplifiedChinese: "在中间栏生成资产地图、整理计划，并批准归档或隐藏操作。"],
         .organizerInspector: [.english: "Organizer Inspector", .simplifiedChinese: "整理器检查器"],
@@ -492,6 +845,10 @@ public enum L10n {
         .openPrimaryAsset: [.english: "Open Primary Asset", .simplifiedChinese: "打开主资产"],
         .approveForApply: [.english: "Approve for apply", .simplifiedChinese: "批准执行"],
         .manualFollowUp: [.english: "Manual Follow-up", .simplifiedChinese: "人工后续"],
+        .manualRecommendationRequired: [.english: "Manual follow-up required", .simplifiedChinese: "需要人工后续"],
+        .manualRecommendationRequiredMessage: [.english: "Keep and Review recommendations are planning notes. Open the assets when you want to inspect the details before taking action.", .simplifiedChinese: "保留和复核属于规划备注。需要细看时再打开相关资产检查即可。"],
+        .noExecutableApprovedActions: [.english: "No executable approved actions. Archive, Hide, and Merge are the actions the app can apply automatically.", .simplifiedChinese: "没有可执行的已批准操作。应用目前可自动执行归档、隐藏和合并。"],
+        .mergedIntoArchiveReason: [.english: "Merged into %@. %@", .simplifiedChinese: "已合并到 %@。%@"],
         .affectedAssets: [.english: "Affected Assets", .simplifiedChinese: "涉及资产"],
         .cleanupReview: [.english: "Cleanup Review", .simplifiedChinese: "整理审查"],
         .cleanupReviewSubtitle: [.english: "Start with a goal, review issue groups with evidence, then apply only reversible actions.", .simplifiedChinese: "先选择目标，再按问题组看证据，最后只执行可回滚的操作。"],
@@ -518,7 +875,7 @@ public enum L10n {
         .buckets: [.english: "Buckets", .simplifiedChinese: "分组"],
         .audiences: [.english: "Audiences", .simplifiedChinese: "使用对象"],
         .humanReviewRequired: [.english: "Human review required", .simplifiedChinese: "需要人工确认"],
-        .manualOnlyNotice: [.english: "Only approved Archive and Hide actions are executed. Keep, Merge, and Review remain manual follow-up notes.", .simplifiedChinese: "只有已批准的归档和隐藏会被执行。保留、合并、复核会作为人工后续事项保留。"],
+        .manualOnlyNotice: [.english: "Approved Archive, Hide, and Merge actions are reversible. Merge keeps the primary asset and archives the duplicate related assets.", .simplifiedChinese: "已批准的归档、隐藏和合并都是可恢复操作。合并会保留主资产，并归档相关重复资产。"],
         .noOrganizationMap: [.english: "No organization map yet.", .simplifiedChinese: "尚未生成整理地图。"],
         .noOrganizationRecommendations: [.english: "No recommendations yet. Build a local plan or ask AI for a plan.", .simplifiedChinese: "尚无整理建议。可以生成本地计划，或让 AI 规划。"],
         .planSource: [.english: "Plan source", .simplifiedChinese: "计划来源"],
@@ -535,8 +892,23 @@ public enum L10n {
         .localPlanReady: [.english: "Local plan ready", .simplifiedChinese: "本地计划已生成"],
         .aiPlanReady: [.english: "AI plan ready", .simplifiedChinese: "AI 计划已生成"],
         .aiPlanFailedUsingLocal: [.english: "AI plan failed. Showing the local plan instead.", .simplifiedChinese: "AI 计划失败，已显示本地计划。"],
+        .aiPlanErrorPrefix: [.english: "AI plan error: %@", .simplifiedChinese: "AI 计划错误：%@"],
         .openAIKeyRequiredForOrganizer: [.english: "Add an OpenAI API key in Settings to generate an AI plan.", .simplifiedChinese: "请先在设置中添加 OpenAI API key，才能生成 AI 计划。"],
         .appliedOrganizationActions: [.english: "Applied %d actions. %d approved items remain manual follow-up.", .simplifiedChinese: "已执行 %d 个操作。%d 个已批准项目保留为人工后续事项。"],
+        .sensitiveFilesNotSentToOpenAI: [.english: "Sensitive files are not sent to OpenAI.", .simplifiedChinese: "敏感文件不会发送给 OpenAI。"],
+        .archivedFileStatus: [.english: "Archived %@", .simplifiedChinese: "已归档 %@"],
+        .restoredFileStatus: [.english: "Restored %@", .simplifiedChinese: "已恢复 %@"],
+        .hiddenFileStatus: [.english: "Hidden %@", .simplifiedChinese: "已隐藏 %@"],
+        .unhiddenFileStatus: [.english: "Restored hidden %@", .simplifiedChinese: "已恢复隐藏项 %@"],
+        .latestOperation: [.english: "Latest Operation", .simplifiedChinese: "最近操作"],
+        .operationHistory: [.english: "Operation History", .simplifiedChinese: "操作历史"],
+        .operationResult: [.english: "Operation Result", .simplifiedChinese: "执行结果"],
+        .noOperationHistory: [.english: "No management operations yet.", .simplifiedChinese: "暂无管理操作记录。"],
+        .undoLatestOperation: [.english: "Undo Latest", .simplifiedChinese: "撤销最近操作"],
+        .operationBatchApplied: [.english: "Applied %d actions. %d failed.", .simplifiedChinese: "已执行 %d 个操作，%d 个失败。"],
+        .operationBatchUndone: [.english: "Undid %d actions. %d failed.", .simplifiedChinese: "已撤销 %d 个操作，%d 个失败。"],
+        .operationUndoNotAvailable: [.english: "No reversible actions in the latest operation.", .simplifiedChinese: "最近操作中没有可撤销的动作。"],
+        .affectedFiles: [.english: "Affected Files", .simplifiedChinese: "影响文件"],
         .assets: [.english: "Assets", .simplifiedChinese: "资产"],
         .archive: [.english: "Archive", .simplifiedChinese: "归档"],
         .allSources: [.english: "All Sources", .simplifiedChinese: "全部来源"],
@@ -585,6 +957,12 @@ public enum L10n {
         .metadata: [.english: "Metadata", .simplifiedChinese: "元数据"],
         .diagnostics: [.english: "Diagnostics", .simplifiedChinese: "诊断"],
         .rawContent: [.english: "Raw Content", .simplifiedChinese: "原始内容"],
+        .rawSensitiveFileHidden: [.english: "Sensitive file intentionally not displayed.", .simplifiedChinese: "敏感文件已隐藏，原始内容不会显示。"],
+        .showRedactedLocalPreview: [.english: "Show Redacted Local Preview", .simplifiedChinese: "显示本地脱敏预览"],
+        .redactedLocalPreviewNote: [.english: "Local-only redacted preview. It is not sent to AI or saved in the audit log.", .simplifiedChinese: "仅本地显示脱敏预览，不会发送给 AI，也不会写入审计日志。"],
+        .rawLargeFileRequiresExplicitLoad: [.english: "File is %@. Load explicitly to display the full raw content.", .simplifiedChinese: "文件大小为 %@。请点击加载全文后显示完整原始内容。"],
+        .rawFileTooLargeForInline: [.english: "File is %@. It is too large to render safely inside the app. Open it in Finder or a dedicated editor.", .simplifiedChinese: "文件大小为 %@，过大，无法在应用内安全渲染。请用 Finder 或专门的编辑器打开。"],
+        .rawUnableToReadFile: [.english: "Unable to read full file: %@", .simplifiedChinese: "无法读取完整文件：%@"],
         .explainWithOpenAI: [.english: "Explain with OpenAI", .simplifiedChinese: "用 OpenAI 解释"],
         .loadFullContent: [.english: "Load Full Content", .simplifiedChinese: "加载全文"],
         .indexHealth: [.english: "Index Health", .simplifiedChinese: "索引健康"],

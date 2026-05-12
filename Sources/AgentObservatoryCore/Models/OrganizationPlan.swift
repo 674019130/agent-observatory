@@ -113,6 +113,28 @@ public struct OrganizationRecommendation: Identifiable, Codable, Equatable, Send
         self.confidence = confidence
         self.isApprovedByDefault = isApprovedByDefault
     }
+
+    public var canApplyAutomatically: Bool {
+        switch action {
+        case .archive, .hide:
+            true
+        case .merge:
+            !relatedAssetPaths.isEmpty
+        case .keep, .review:
+            false
+        }
+    }
+
+    public var automaticApplyAssetPaths: [String] {
+        switch action {
+        case .archive, .hide:
+            [primaryAssetPath]
+        case .merge:
+            relatedAssetPaths
+        case .keep, .review:
+            []
+        }
+    }
 }
 
 public struct OrganizationPlan: Codable, Equatable, Sendable {

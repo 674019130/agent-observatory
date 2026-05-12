@@ -3,13 +3,29 @@ import Foundation
 public struct AssetManagementState: Codable, Equatable, Sendable {
     public var hiddenAssetPaths: Set<String>
     public var archivedAssets: [ArchivedAsset]
+    public var operationBatches: [ManagementOperationBatch]
 
     public init(
         hiddenAssetPaths: Set<String> = [],
-        archivedAssets: [ArchivedAsset] = []
+        archivedAssets: [ArchivedAsset] = [],
+        operationBatches: [ManagementOperationBatch] = []
     ) {
         self.hiddenAssetPaths = hiddenAssetPaths
         self.archivedAssets = archivedAssets
+        self.operationBatches = operationBatches
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case hiddenAssetPaths
+        case archivedAssets
+        case operationBatches
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.hiddenAssetPaths = try container.decodeIfPresent(Set<String>.self, forKey: .hiddenAssetPaths) ?? []
+        self.archivedAssets = try container.decodeIfPresent([ArchivedAsset].self, forKey: .archivedAssets) ?? []
+        self.operationBatches = try container.decodeIfPresent([ManagementOperationBatch].self, forKey: .operationBatches) ?? []
     }
 
     public var archivedOriginalPaths: Set<String> {
@@ -53,5 +69,17 @@ public struct AssetManagementState: Codable, Equatable, Sendable {
 
     public mutating func removeArchive(id: ArchivedAsset.ID) {
         archivedAssets.removeAll { $0.id == id }
+    }
+
+    public mutating func addOperationBatch(_ batch: ManagementOperationBatch) {
+        guard !batch.records.isEmpty else { return }
+        operationBatches.removeAll { $0.id == batch.id }
+        operationBatches.insert(batch, at: 0)
+        operationBatches = Array(operationBatches.prefix(50))
+    }
+
+    public mutating func replaceOperationBatch(_ batch: ManagementOperationBatch) {
+        guard let index = operationBatches.firstIndex(where: { $0.id == batch.id }) else { return }
+        operationBatches[index] = batch
     }
 }

@@ -222,7 +222,7 @@ private struct SummaryPanel: View {
                             Label(store.t(.explainWithOpenAI), systemImage: "sparkles")
                         }
                     }
-                    .disabled(store.enrichingAssetID != nil)
+                    .disabled(store.enrichingAssetID != nil || !OpenAIPayloadGuard.isSafeForAI(asset))
                     .buttonStyle(.borderedProminent)
 
                     Text(store.t(.usesRedactedPreviewTextOnly))
@@ -625,15 +625,39 @@ private struct PreviewPanel: View {
                         .controlSize(.small)
                 } else if let rawContent {
                     if rawContent.isSensitive {
-                        Label(rawContent.text, systemImage: "lock.trianglebadge.exclamationmark")
+                        VStack(alignment: .leading, spacing: 10) {
+                            Label(
+                                rawContent.isRedactedPreview ? store.t(.redactedLocalPreviewNote) : rawContent.text,
+                                systemImage: "lock.trianglebadge.exclamationmark"
+                            )
                             .foregroundStyle(.orange)
+
+                            if rawContent.isRedactedPreview {
+                                ScrollView([.vertical, .horizontal]) {
+                                    Text(rawContent.text.isEmpty ? store.t(.emptyFile) : rawContent.text)
+                                        .font(.system(.caption, design: .monospaced))
+                                        .textSelection(.enabled)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .frame(minHeight: 180, maxHeight: 420)
+                            } else {
+                                Button {
+                                    Task {
+                                        await loadRawContent(allowLargeFile: false, allowSensitivePreview: true)
+                                    }
+                                } label: {
+                                    Label(store.t(.showRedactedLocalPreview), systemImage: "eye")
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
                     } else if rawContent.isTooLarge {
                         VStack(alignment: .leading, spacing: 10) {
                             Label(rawContent.text, systemImage: "externaldrive.badge.exclamationmark")
                                 .foregroundStyle(.orange)
                             Button {
                                 Task {
-                                    await loadRawContent(allowLargeFile: true)
+                                    await loadRawContent(allowLargeFile: true, allowSensitivePreview: false)
                                 }
                             } label: {
                                 Label(store.t(.loadFullContent), systemImage: "doc.plaintext")
@@ -659,17 +683,25 @@ private struct PreviewPanel: View {
             }
         }
         .task(id: "\(asset.path)-\(asset.contentHash)") {
-            await loadRawContent(allowLargeFile: false)
+            await loadRawContent(allowLargeFile: false, allowSensitivePreview: false)
         }
     }
 
     @MainActor
-    private func loadRawContent(allowLargeFile: Bool) async {
+    private func loadRawContent(allowLargeFile: Bool, allowSensitivePreview: Bool) async {
         isLoading = true
         rawContent = nil
         let path = asset.path
+        let language = store.appLanguage
+        let forceSensitive = asset.statusFlags.contains(.secretRisk)
         let result = await Task.detached(priority: .userInitiated) {
-            RawContentReader().read(path: path, allowLargeFile: allowLargeFile)
+            RawContentReader().read(
+                path: path,
+                allowLargeFile: allowLargeFile,
+                allowSensitivePreview: allowSensitivePreview,
+                forceSensitive: forceSensitive,
+                language: language
+            )
         }.value
         rawContent = result
         isLoading = false

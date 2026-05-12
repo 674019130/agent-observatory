@@ -55,13 +55,16 @@ public final class FileSystemAssetScanner {
             source(.claude, "Claude Scripts", claude.appendingPathComponent("scripts"), "global", 5),
             source(.claude, "Claude Hooks", claude.appendingPathComponent("hooks"), "global", 5),
             source(.claude, "Claude Project Memories", claude.appendingPathComponent("projects"), "project-memory", 6),
+            source(.claude, "Claude Plans", claude.appendingPathComponent("plans"), "session-history", 3),
 
             source(.codex, "Codex Instructions", codex.appendingPathComponent("AGENTS.md"), "global", 0),
             source(.codex, "Codex Config", codex.appendingPathComponent("config.toml"), "global", 0),
+            source(.codex, "Codex Commands", codex.appendingPathComponent("commands"), "global", 4),
             source(.codex, "Codex Rules", codex.appendingPathComponent("rules"), "global", 4),
             source(.codex, "Codex Skills", codex.appendingPathComponent("skills"), "global", 8),
             source(.codex, "Codex Plugins", codex.appendingPathComponent("plugins/cache"), "plugin", 10),
             source(.codex, "Codex Memories", codex.appendingPathComponent("memories"), "global", 5),
+            source(.codex, "Codex Automations", codex.appendingPathComponent("automations"), "automation-memory", 4),
 
             source(.agents, "Agent Skills", agents.appendingPathComponent("skills"), "global", 8),
 
@@ -479,6 +482,9 @@ public final class FileSystemAssetScanner {
         if name == "skill.md" { return .skill }
         if name == "agents.md" || name == "claude.md" { return .instruction }
         if name == "memory.md" || name == "favorite_tools.md" || (path.contains("/memory/") && ext == "md") || (path.contains("/memories/") && ext == "md") {
+            return .memory
+        }
+        if root.scope.lowercased().contains("workspace") && ["md", "markdown", "txt"].contains(ext) {
             return .memory
         }
         if path.contains("/commands/") && ext == "md" { return .command }

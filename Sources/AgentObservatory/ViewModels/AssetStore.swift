@@ -13,15 +13,22 @@ final class AssetStore: ObservableObject {
     @Published private(set) var lastFileEventPaths: [String] = []
     @Published private(set) var lastChangeSummary: AssetChangeSummary = .empty
     @Published private(set) var managementState: AssetManagementState
+    @Published private(set) var aiAuditLog: AIAuditLog
     @Published private(set) var dashboardSummary: DashboardSummary = .empty
+    @Published private(set) var contextCatalog: ContextCatalog = .empty
     @Published private(set) var organizationMap: OrganizationMap = .empty
+    @Published private(set) var organizerBrief: OrganizerBrief = .empty
+    @Published private(set) var organizerRun: OrganizerRun = .empty
+    @Published private(set) var organizerRunReview: OrganizerRun?
     @Published private(set) var organizationPlan: OrganizationPlan = .empty
     @Published private(set) var cleanupReviewSession: CleanupReviewSession = .empty
     @Published private(set) var lastOrganizationMapDate: Date?
     @Published private(set) var isBuildingOrganizationMap = false
     @Published private(set) var isBuildingCleanupReview = false
+    @Published private(set) var isPreparingOrganizerRun = false
     @Published private(set) var isOrganizing = false
     @Published private(set) var organizerStatus: String?
+    @Published private(set) var cleanupExecutionPreview: CleanupExecutionPreview?
     @Published var organizationDetailSelection = OrganizationDetailSelection()
     @Published var cleanupReviewGoal: CleanupReviewGoal = .fullReview
     @Published var selectedCleanupGroupID: CleanupReviewGroup.ID?
@@ -29,7 +36,7 @@ final class AssetStore: ObservableObject {
     @Published var organizerError: String?
     @Published var approvedOrganizationRecommendationIDs: Set<String> = []
     @Published var approvedCleanupGroupIDs: Set<String> = []
-    @Published var selectedSection: WorkspaceSection = .dashboard
+    @Published var selectedSection: WorkspaceSection = .contextOverview
     @Published var scanSources: [ScanSource]
     @Published var selectedOwner: AgentOwner?
     @Published var selectedKind: AssetKind?
@@ -48,6 +55,7 @@ final class AssetStore: ObservableObject {
 
     private static let scanSourcesDefaultsKey = "scanSources.v2"
     private static let managementStateDefaultsKey = "assetManagementState.v1"
+    private static let aiAuditLogDefaultsKey = "aiAuditLog.v1"
     private static let appLanguageDefaultsKey = "appLanguage"
     private static let openAIBaseURLDefaultsKey = "openAIBaseURL"
 
@@ -64,6 +72,8 @@ final class AssetStore: ObservableObject {
     private var organizerTask: Task<Void, Never>?
     private var pendingOrganizationMapAfterScan = false
     private var pendingCleanupReviewAfterScan = false
+    private var pendingOrganizerRunAfterScan = false
+    private var pendingCleanupExecutionPreview = false
     private var lastSnapshot: ScanSnapshot?
 
     init(
@@ -76,6 +86,7 @@ final class AssetStore: ObservableObject {
         self.summaryCache = summaryCache
         self.scanSources = Self.loadScanSources(defaultSources: scanner.defaultSources())
         self.managementState = Self.loadManagementState()
+        self.aiAuditLog = Self.loadAIAuditLog()
         self.aiSummaries = (try? summaryCache.loadSummaries()) ?? [:]
         rebuildDashboardSummary()
     }
@@ -107,12 +118,30 @@ final class AssetStore: ObservableObject {
         managementState.archivedAssets
     }
 
+    var managementOperationBatches: [ManagementOperationBatch] {
+        managementState.operationBatches
+    }
+
+    var aiAuditRecords: [AIAuditRecord] {
+        aiAuditLog.records
+    }
+
+    var latestManagementBatch: ManagementOperationBatch? {
+        managementState.operationBatches.first
+    }
+
     var hiddenAssets: [AgentAsset] {
         managementState.hiddenAssets(from: assets)
     }
 
     var approvedOrganizationRecommendationCount: Int {
         approvedOrganizationRecommendationIDs.count
+    }
+
+    var approvedExecutableOrganizationRecommendationCount: Int {
+        organizationPlan.recommendations.filter {
+            approvedOrganizationRecommendationIDs.contains($0.id) && $0.canApplyAutomatically
+        }.count
     }
 
     var approvedCleanupGroupCount: Int {
@@ -125,6 +154,16 @@ final class AssetStore: ObservableObject {
 
     var executableCleanupGroupCount: Int {
         cleanupReviewSession.groups.filter(\.canApplyAutomatically).count
+    }
+
+    var organizerAdvancedContentState: OrganizerAdvancedContentState {
+        OrganizerAdvancedContentState(
+            isBuildingCleanupReview: isBuildingCleanupReview,
+            cleanupGroupCount: cleanupReviewSession.groups.count,
+            recommendationCount: organizationPlan.recommendations.count,
+            organizationAssetCount: organizationMap.totalAssets,
+            hasBuiltOrganizationMap: lastOrganizationMapDate != nil
+        )
     }
 
     var selectedCleanupGroup: CleanupReviewGroup? {
@@ -174,6 +213,25 @@ final class AssetStore: ObservableObject {
         visibleAssets.filter { filter.matches($0) }.count
     }
 
+    func organizerBriefMarkdown() -> String {
+        OrganizerBriefExporter().markdown(
+            brief: organizerBrief,
+            map: organizationMap,
+            language: appLanguage
+        )
+    }
+
+    func organizerRunMarkdown() -> String {
+        OrganizerRunExporter().markdown(
+            run: organizerRun,
+            language: appLanguage
+        )
+    }
+
+    func markOrganizerBriefCopied() {
+        organizerStatus = t(.organizerBriefCopied)
+    }
+
     func sourceExists(_ source: ScanSource) -> Bool {
         FileManager.default.fileExists(atPath: source.url.path)
     }
@@ -189,6 +247,26 @@ final class AssetStore: ObservableObject {
         searchText = ""
         selectedAssetID = filteredAssets.first?.id
         selectedSection = .assets
+    }
+
+    func showContextOverview() {
+        selectedSection = .contextOverview
+        selectedAssetID = nil
+    }
+
+    func showMemories() {
+        selectedSection = .memories
+        selectedAssetID = contextCatalog.memoryItems.first?.asset.id
+    }
+
+    func showCapabilities() {
+        selectedSection = .capabilities
+        selectedAssetID = contextCatalog.capabilityItems.first?.asset.id
+    }
+
+    func showAssembly() {
+        selectedSection = .assembly
+        selectedAssetID = nil
     }
 
     func showDashboard() {
@@ -229,10 +307,10 @@ final class AssetStore: ObservableObject {
         isScanning = true
         scanProgress = ScanProgress(
             phase: .preparing,
-            sourceLabel: "All Sources",
+            sourceLabel: t(.allSources),
             rootsCompleted: 0,
             rootCount: sources.filter(\.isEnabled).count,
-            message: "Preparing scan roots"
+            message: t(.scanPreparingRoots)
         )
 
         DispatchQueue.global(qos: .userInitiated).async { [scanID, sources, token] in
@@ -259,13 +337,20 @@ final class AssetStore: ObservableObject {
                     }
                     if self.pendingCleanupReviewAfterScan {
                         self.pendingCleanupReviewAfterScan = false
+                        self.pendingCleanupExecutionPreview = false
+                        self.cleanupExecutionPreview = nil
                         self.isBuildingCleanupReview = false
+                        self.organizerStatus = self.t(.scanCancelledForCleanupReview)
+                    }
+                    if self.pendingOrganizerRunAfterScan {
+                        self.pendingOrganizerRunAfterScan = false
+                        self.isPreparingOrganizerRun = false
                         self.organizerStatus = self.t(.scanCancelledForCleanupReview)
                     }
                     self.isScanning = false
                     self.scanProgress = ScanProgress(
                         phase: .cancelled,
-                        sourceLabel: "All Sources",
+                        sourceLabel: self.t(.allSources),
                         rootsCompleted: self.scanProgress?.rootsCompleted ?? 0,
                         rootCount: self.scanProgress?.rootCount ?? 0,
                         filesVisited: self.scanProgress?.filesVisited ?? 0,
@@ -274,7 +359,7 @@ final class AssetStore: ObservableObject {
                         assetsFound: self.scanProgress?.assetsFound ?? self.assets.count,
                         directoriesSkipped: self.scanProgress?.directoriesSkipped ?? 0,
                         readErrors: self.scanProgress?.readErrors ?? 0,
-                        message: "Scan cancelled"
+                        message: self.t(.scanCancelled)
                     )
                     return
                 }
@@ -290,7 +375,7 @@ final class AssetStore: ObservableObject {
                 self.isScanning = false
                 self.scanProgress = ScanProgress(
                     phase: .completed,
-                    sourceLabel: "All Sources",
+                    sourceLabel: self.t(.allSources),
                     rootsCompleted: self.scanProgress?.rootCount ?? 0,
                     rootCount: self.scanProgress?.rootCount ?? 0,
                     filesVisited: self.scanProgress?.filesVisited ?? 0,
@@ -300,7 +385,7 @@ final class AssetStore: ObservableObject {
                     directoriesSkipped: self.scanProgress?.directoriesSkipped ?? 0,
                     readErrors: self.scanProgress?.readErrors ?? 0,
                     rootProgress: 1,
-                    message: "Scan completed"
+                    message: self.t(.scanCompleted)
                 )
                 self.rebuildDashboardSummary()
                 if self.pendingOrganizationMapAfterScan {
@@ -309,10 +394,15 @@ final class AssetStore: ObservableObject {
                 if self.pendingCleanupReviewAfterScan {
                     self.finishCleanupReview()
                 }
+                if self.pendingOrganizerRunAfterScan {
+                    self.finishOrganizerRunBuild(presentReview: true)
+                }
 
                 if let previousSelectedPath,
                    let preserved = visibleScanned.first(where: { $0.path == previousSelectedPath }) {
                     self.selectedAssetID = preserved.id
+                } else if self.selectedSection == .contextOverview || self.selectedSection == .assembly {
+                    self.selectedAssetID = nil
                 } else {
                     self.selectedAssetID = self.filteredAssets.first?.id
                 }
@@ -331,13 +421,20 @@ final class AssetStore: ObservableObject {
         }
         if pendingCleanupReviewAfterScan {
             pendingCleanupReviewAfterScan = false
+            pendingCleanupExecutionPreview = false
+            cleanupExecutionPreview = nil
             isBuildingCleanupReview = false
+            organizerStatus = t(.scanCancelledForCleanupReview)
+        }
+        if pendingOrganizerRunAfterScan {
+            pendingOrganizerRunAfterScan = false
+            isPreparingOrganizerRun = false
             organizerStatus = t(.scanCancelledForCleanupReview)
         }
         isScanning = false
         scanProgress = ScanProgress(
             phase: .cancelled,
-            sourceLabel: scanProgress?.sourceLabel ?? "All Sources",
+            sourceLabel: scanProgress?.sourceLabel ?? t(.allSources),
             currentPath: scanProgress?.currentPath ?? "",
             rootsCompleted: scanProgress?.rootsCompleted ?? 0,
             rootCount: scanProgress?.rootCount ?? 0,
@@ -347,7 +444,7 @@ final class AssetStore: ObservableObject {
             assetsFound: scanProgress?.assetsFound ?? assets.count,
             directoriesSkipped: scanProgress?.directoriesSkipped ?? 0,
             readErrors: scanProgress?.readErrors ?? 0,
-            message: "Scan cancelled"
+            message: t(.scanCancelled)
         )
         activeScanID = nil
     }
@@ -383,6 +480,30 @@ final class AssetStore: ObservableObject {
         rebuildDashboardSummary()
     }
 
+    func addWorkspaceMemorySource(url: URL) {
+        let standardizedPath = url.standardizedFileURL.path
+        let id = "workspace-memory-\(StableHash.hash(standardizedPath))"
+        guard !scanSources.contains(where: { $0.id == id }) else { return }
+
+        let folderName = url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent
+        scanSources.append(
+            ScanSource(
+                id: id,
+                owner: .project,
+                label: "\(t(.workspaceMemory)) · \(folderName)",
+                path: standardizedPath,
+                scope: "workspace-memory",
+                maxDepth: 12,
+                isEnabled: true,
+                isCustom: true
+            )
+        )
+        saveScanSources()
+        startWatchingSources()
+        isIndexStale = true
+        rebuildDashboardSummary()
+    }
+
     func removeSource(_ source: ScanSource) {
         guard source.isCustom else { return }
         scanSources.removeAll { $0.id == source.id }
@@ -406,13 +527,12 @@ final class AssetStore: ObservableObject {
     }
 
     func hideAsset(_ asset: AgentAsset) {
-        managementState.hide(path: asset.path)
-        saveManagementState()
-        rebuildDashboardSummary()
-        pruneOrganizationApprovals()
-        if selectedAssetID == asset.id {
-            selectedAssetID = filteredAssets.first?.id
-        }
+        let record = performHideAsset(asset)
+        commitManagementOperations(
+            title: "\(t(.hide)): \(asset.title)",
+            source: .manual,
+            records: [record]
+        )
     }
 
     func unhideAllAssets() {
@@ -426,6 +546,7 @@ final class AssetStore: ObservableObject {
         managementState.unhide(path: asset.path)
         saveManagementState()
         managementError = nil
+        markManagedFileEvent(path: asset.path, message: String(format: t(.unhiddenFileStatus), asset.displayPath))
         rebuildDashboardSummary()
         if selectedAssetID == asset.id {
             selectedAssetID = nil
@@ -438,22 +559,12 @@ final class AssetStore: ObservableObject {
     }
 
     func archiveAsset(_ asset: AgentAsset, reason: String) {
-        do {
-            let archived = try archiveService.archive(asset: asset, reason: reason)
-            managementState.hiddenAssetPaths.remove(asset.path)
-            managementState.addArchive(archived)
-            saveManagementState()
-            assets.removeAll { $0.path == asset.path }
-            managementError = nil
-            markManagedFileEvent(path: asset.path, message: "Archived \(asset.displayPath)")
-            rebuildDashboardSummary()
-            pruneOrganizationApprovals()
-            if selectedAssetID == asset.id {
-                selectedAssetID = filteredAssets.first?.id
-            }
-        } catch {
-            managementError = error.localizedDescription
-        }
+        let record = performArchiveAsset(asset, reason: reason, kind: .archive)
+        commitManagementOperations(
+            title: "\(t(.archiveAction)): \(asset.title)",
+            source: .manual,
+            records: [record]
+        )
     }
 
     func restoreArchivedAsset(_ archivedAsset: ArchivedAsset) {
@@ -462,12 +573,64 @@ final class AssetStore: ObservableObject {
             managementState.removeArchive(id: archivedAsset.id)
             saveManagementState()
             managementError = nil
-            markManagedFileEvent(path: archivedAsset.originalPath, message: "Restored \(archivedAsset.displayOriginalPath)")
+            markManagedFileEvent(path: archivedAsset.originalPath, message: String(format: t(.restoredFileStatus), archivedAsset.displayOriginalPath))
             rebuildDashboardSummary()
             pruneOrganizationApprovals()
         } catch {
             managementError = error.localizedDescription
         }
+    }
+
+    func undoLatestManagementBatch() {
+        guard let batch = latestManagementBatch else { return }
+        undoManagementBatch(batch)
+    }
+
+    func undoManagementBatch(_ batch: ManagementOperationBatch) {
+        guard batch.undoableCount > 0 else {
+            organizerStatus = t(.operationUndoNotAvailable)
+            return
+        }
+
+        var updatedBatch = batch
+        var undoneCount = 0
+        var failedCount = 0
+        var affectedPaths: [String] = []
+
+        for record in batch.records.reversed() where record.isUndoable {
+            switch record.kind {
+            case .hide:
+                managementState.unhide(path: record.originalPath)
+                updatedBatch.markRecord(id: record.id, status: .undone, message: String(format: t(.unhiddenFileStatus), record.title))
+                undoneCount += 1
+                affectedPaths.append(record.originalPath)
+            case .archive, .mergeArchive:
+                guard let archivedAsset = record.archivedAsset else {
+                    updatedBatch.markRecord(id: record.id, status: .undoFailed, message: t(.operationUndoNotAvailable))
+                    failedCount += 1
+                    continue
+                }
+
+                do {
+                    try archiveService.restore(archivedAsset)
+                    managementState.removeArchive(id: archivedAsset.id)
+                    updatedBatch.markRecord(id: record.id, status: .undone, message: String(format: t(.restoredFileStatus), archivedAsset.displayOriginalPath))
+                    undoneCount += 1
+                    affectedPaths.append(record.originalPath)
+                } catch {
+                    updatedBatch.markRecord(id: record.id, status: .undoFailed, message: error.localizedDescription)
+                    managementError = error.localizedDescription
+                    failedCount += 1
+                }
+            }
+        }
+
+        managementState.replaceOperationBatch(updatedBatch)
+        saveManagementState()
+        markManagedFileEvent(paths: affectedPaths, message: String(format: t(.operationBatchUndone), undoneCount, failedCount))
+        rebuildDashboardSummary()
+        pruneOrganizationApprovals()
+        organizerStatus = String(format: t(.operationBatchUndone), undoneCount, failedCount)
     }
 
     func buildOrganizationMap() {
@@ -520,6 +683,100 @@ final class AssetStore: ObservableObject {
         }
     }
 
+    func prepareCleanupExecution(goal: CleanupReviewGoal) {
+        cleanupExecutionPreview = nil
+        pendingCleanupExecutionPreview = true
+        cleanupReviewGoal = goal
+        startCleanupReview()
+    }
+
+    func prepareOrganizerRun() {
+        organizerRunReview = nil
+        organizerTask?.cancel()
+        activeOrganizerID = nil
+        isOrganizing = false
+        organizerError = nil
+
+        switch OrganizationMapBuildPlanner().decision(
+            assetCount: visibleAssets.count,
+            isIndexStale: isIndexStale,
+            isScanning: isScanning
+        ) {
+        case .buildCurrentIndex:
+            finishOrganizerRunBuild(presentReview: true)
+        case .scanThenBuild:
+            pendingOrganizerRunAfterScan = true
+            isPreparingOrganizerRun = true
+            organizerStatus = t(.organizerRunScanning)
+            scan()
+        case .waitForScan:
+            pendingOrganizerRunAfterScan = true
+            isPreparingOrganizerRun = true
+            organizerStatus = t(.organizerRunScanning)
+        }
+    }
+
+    func dismissOrganizerRunReview() {
+        organizerRunReview = nil
+    }
+
+    func confirmOrganizerRunExecution() {
+        let run = organizerRunReview ?? organizerRun
+        organizerRunReview = nil
+        guard run.hasExecutablePacks else {
+            organizerStatus = t(.cleanupPreviewManualOnly)
+            return
+        }
+
+        var records: [ManagementOperationRecord] = []
+        for pack in run.executablePacks {
+            for path in pack.executableAssetPaths {
+                guard let asset = assets.first(where: { $0.path == path }) else { continue }
+                switch pack.kind {
+                case .mergeDuplicates:
+                    records.append(
+                        performArchiveAsset(
+                            asset,
+                            reason: "\(t(.aiOrganizer)): \(pack.summary)",
+                            kind: .mergeArchive
+                        )
+                    )
+                case .hideNoise:
+                    records.append(performHideAsset(asset))
+                case .reviewSensitive, .reviewUnreadable, .clarifyUnknown, .reviewStalePaths:
+                    break
+                }
+            }
+        }
+
+        commitManagementOperations(title: t(.aiOrganizer), source: .aiOrganizer, records: records)
+        finishOrganizerRunBuild(presentReview: false)
+        organizerStatus = String(format: t(.appliedOrganizationActions), records.filter { $0.status == .applied }.count, run.actionPacks.count - run.executablePacks.count)
+    }
+
+    func dismissCleanupExecutionPreview() {
+        cleanupExecutionPreview = nil
+        pendingCleanupExecutionPreview = false
+    }
+
+    func confirmCleanupExecutionPreview() {
+        guard let preview = cleanupExecutionPreview else { return }
+        cleanupExecutionPreview = nil
+        pendingCleanupExecutionPreview = false
+
+        guard preview.hasExecutableActions else {
+            organizerStatus = t(.cleanupPreviewManualOnly)
+            return
+        }
+
+        approvedCleanupGroupIDs = Set(
+            cleanupReviewSession.groups
+                .filter(\.canApplyAutomatically)
+                .map(\.id)
+        )
+        applyApprovedCleanupGroups()
+    }
+
     func generateOrganizationRecommendations(useAI: Bool = true) {
         organizerTask?.cancel()
         activeOrganizerID = nil
@@ -527,8 +784,8 @@ final class AssetStore: ObservableObject {
 
         let analyzer = OrganizationAnalyzer()
         let activeAssets = visibleAssets
-        let map = analyzer.map(assets: activeAssets, aiSummaries: aiSummaries)
-        let localPlan = analyzer.recommendations(for: map, assets: activeAssets)
+        let map = analyzer.map(assets: activeAssets, aiSummaries: aiSummaries, language: appLanguage)
+        let localPlan = analyzer.recommendations(for: map, assets: activeAssets, language: appLanguage)
 
         organizationMap = map
         organizationPlan = localPlan
@@ -554,12 +811,20 @@ final class AssetStore: ObservableObject {
 
         let model = OpenAIConfiguration.normalizedModel(openAIModel)
         let baseURL = OpenAIConfiguration.normalizedBaseURL(openAIBaseURL)
+        let language = appLanguage
         let requestID = UUID()
         activeOrganizerID = requestID
         isOrganizing = true
         organizerStatus = t(.organizing)
+        let auditRecord = beginAIAudit(
+            operation: .organizationPlan,
+            model: model,
+            baseURL: baseURL,
+            assetCount: activeAssets.count,
+            message: t(.organizing)
+        )
 
-        organizerTask = Task { [weak self, organizer, map, activeAssets, apiKey, model, baseURL, localPlan, requestID] in
+        organizerTask = Task { [weak self, organizer, map, activeAssets, apiKey, model, baseURL, language, localPlan, requestID, auditRecord] in
             defer {
                 if let self, self.activeOrganizerID == requestID {
                     self.isOrganizing = false
@@ -574,7 +839,8 @@ final class AssetStore: ObservableObject {
                     assets: activeAssets,
                     apiKey: apiKey,
                     model: model,
-                    baseURL: baseURL
+                    baseURL: baseURL,
+                    language: language
                 )
                 guard !Task.isCancelled else { return }
                 guard let self, self.activeOrganizerID == requestID else { return }
@@ -582,20 +848,30 @@ final class AssetStore: ObservableObject {
                 self.organizationPlan = mergedPlan
                 self.resetOrganizationApprovals(for: mergedPlan)
                 self.organizerStatus = self.t(.aiPlanReady)
+                self.finishAIAudit(auditRecord, status: .succeeded, message: self.t(.aiPlanReady))
             } catch is CancellationError {
+                guard let self else { return }
+                self.finishAIAudit(auditRecord, status: .cancelled, message: self.t(.cancel))
                 return
             } catch {
                 guard !Task.isCancelled else { return }
                 guard let self, self.activeOrganizerID == requestID else { return }
                 self.organizationPlan = localPlan
                 self.resetOrganizationApprovals(for: localPlan)
-                self.organizerError = error.localizedDescription
+                self.organizerError = String(format: self.t(.aiPlanErrorPrefix), error.localizedDescription)
                 self.organizerStatus = self.t(.aiPlanFailedUsingLocal)
+                self.finishAIAudit(auditRecord, status: .failed, message: error.localizedDescription)
             }
         }
     }
 
     func setOrganizationRecommendationApproved(_ recommendation: OrganizationRecommendation, approved: Bool) {
+        guard recommendation.canApplyAutomatically else {
+            approvedOrganizationRecommendationIDs.remove(recommendation.id)
+            organizerStatus = t(.manualRecommendationRequired)
+            return
+        }
+
         if approved {
             approvedOrganizationRecommendationIDs.insert(recommendation.id)
         } else {
@@ -642,54 +918,65 @@ final class AssetStore: ObservableObject {
             approvedCleanupGroupIDs.contains($0.id) && $0.canApplyAutomatically
         }
 
-        var appliedCount = 0
+        var records: [ManagementOperationRecord] = []
         for group in approvedGroups {
-            for path in group.assetPaths {
+            for path in group.automaticApplyAssetPaths {
                 guard let asset = assets.first(where: { $0.path == path }) else { continue }
                 switch group.action {
                 case .archive:
-                    archiveAsset(asset, reason: "Cleanup Review: \(group.summary)")
-                    appliedCount += 1
+                    records.append(performArchiveAsset(asset, reason: "\(t(.cleanupReview)): \(group.summary)", kind: .archive))
+                case .merge:
+                    records.append(performArchiveAsset(asset, reason: mergeArchiveReason(summary: group.summary, primaryPath: group.assetPaths.first), kind: .mergeArchive))
                 case .hide:
-                    hideAsset(asset)
-                    appliedCount += 1
-                case .merge, .review, .keep:
+                    records.append(performHideAsset(asset))
+                case .review, .keep:
                     break
                 }
             }
         }
 
+        commitManagementOperations(title: t(.cleanupReview), source: .cleanupReview, records: records)
         approvedCleanupGroupIDs = []
         finishCleanupReview()
-        organizerStatus = String(format: t(.appliedCleanupActions), appliedCount)
+        organizerStatus = String(format: t(.appliedCleanupActions), records.filter { $0.status == .applied }.count)
     }
 
     func applyApprovedOrganizationActions() {
         let approvedRecommendations = organizationPlan.recommendations.filter {
             approvedOrganizationRecommendationIDs.contains($0.id)
         }
+        let executableRecommendations = approvedRecommendations.filter(\.canApplyAutomatically)
 
-        var appliedCount = 0
-        var manualCount = 0
+        guard !executableRecommendations.isEmpty else {
+            approvedOrganizationRecommendationIDs = []
+            organizerStatus = t(.noExecutableApprovedActions)
+            return
+        }
 
-        for recommendation in approvedRecommendations {
-            guard let asset = assets.first(where: { $0.path == recommendation.primaryAssetPath }) else { continue }
-            switch recommendation.action {
-            case .archive:
-                archiveAsset(asset, reason: "AI Organizer: \(recommendation.reason)")
-                appliedCount += 1
-            case .hide:
-                hideAsset(asset)
-                appliedCount += 1
-            case .keep, .merge, .review:
-                manualCount += 1
+        var records: [ManagementOperationRecord] = []
+        let manualCount = approvedRecommendations.count - executableRecommendations.count
+
+        for recommendation in executableRecommendations {
+            for path in recommendation.automaticApplyAssetPaths {
+                guard let asset = assets.first(where: { $0.path == path }) else { continue }
+                switch recommendation.action {
+                case .archive:
+                    records.append(performArchiveAsset(asset, reason: "\(t(.aiOrganizer)): \(recommendation.reason)", kind: .archive))
+                case .merge:
+                    records.append(performArchiveAsset(asset, reason: mergeArchiveReason(summary: recommendation.reason, primaryPath: recommendation.primaryAssetPath), kind: .mergeArchive))
+                case .hide:
+                    records.append(performHideAsset(asset))
+                case .keep, .review:
+                    break
+                }
             }
         }
 
+        commitManagementOperations(title: t(.aiOrganizer), source: .aiOrganizer, records: records)
         approvedOrganizationRecommendationIDs = []
         rebuildOrganizationMap()
-        organizationPlan = OrganizationAnalyzer().recommendations(for: organizationMap, assets: visibleAssets)
-        organizerStatus = String(format: t(.appliedOrganizationActions), appliedCount, manualCount)
+        organizationPlan = OrganizationAnalyzer().recommendations(for: organizationMap, assets: visibleAssets, language: appLanguage)
+        organizerStatus = String(format: t(.appliedOrganizationActions), records.filter { $0.status == .applied }.count, manualCount)
     }
 
     func startWatchingSources() {
@@ -739,6 +1026,10 @@ final class AssetStore: ObservableObject {
     func setAppLanguage(_ language: AppLanguage) {
         appLanguage = language
         saveGeneralSettings()
+        rebuildOrganizationMap()
+        if cleanupReviewSession.createdAt.timeIntervalSince1970 > 0 {
+            cleanupReviewSession = CleanupReviewAnalyzer().session(goal: cleanupReviewGoal, assets: visibleAssets, language: appLanguage)
+        }
     }
 
     func saveGeneralSettings() {
@@ -747,8 +1038,8 @@ final class AssetStore: ObservableObject {
 
     func enrichSelectedAsset() {
         guard let asset = selectedAsset else { return }
-        guard !asset.statusFlags.contains(.secretRisk) else {
-            aiErrors[asset.contentHash] = "Sensitive files are not sent to OpenAI."
+        guard OpenAIPayloadGuard.isSafeForAI(asset) else {
+            aiErrors[asset.contentHash] = t(.sensitiveFilesNotSentToOpenAI)
             return
         }
 
@@ -758,8 +1049,16 @@ final class AssetStore: ObservableObject {
         let apiKey = openAIKey
         let model = OpenAIConfiguration.normalizedModel(openAIModel)
         let baseURL = OpenAIConfiguration.normalizedBaseURL(openAIBaseURL)
+        let language = appLanguage
+        let auditRecord = beginAIAudit(
+            operation: .assetExplanation,
+            model: model,
+            baseURL: baseURL,
+            assetCount: 1,
+            message: L10n.aiAuditOperation(.assetExplanation, language: appLanguage)
+        )
 
-        enrichmentTask = Task { [weak self, asset, apiKey, model, baseURL, enricher, summaryCache] in
+        enrichmentTask = Task { [weak self, asset, apiKey, model, baseURL, language, enricher, summaryCache, auditRecord] in
             defer {
                 Task { @MainActor [weak self] in
                     guard let self, self.enrichingAssetID == asset.id else { return }
@@ -773,19 +1072,24 @@ final class AssetStore: ObservableObject {
                     asset: asset,
                     apiKey: apiKey,
                     model: model,
-                    baseURL: baseURL
+                    baseURL: baseURL,
+                    language: language
                 )
                 guard !Task.isCancelled else { return }
                 guard let self else { return }
                 aiSummaries[asset.contentHash] = summary
                 try? summaryCache.save(summary: summary, forContentHash: asset.contentHash)
                 rebuildDashboardSummary()
+                finishAIAudit(auditRecord, status: .succeeded, message: L10n.aiAuditOperation(.assetExplanation, language: language))
             } catch is CancellationError {
+                guard let self else { return }
+                finishAIAudit(auditRecord, status: .cancelled, message: L10n.aiAuditOperation(.assetExplanation, language: language))
                 return
             } catch {
                 guard !Task.isCancelled else { return }
                 guard let self else { return }
                 aiErrors[asset.contentHash] = error.localizedDescription
+                finishAIAudit(auditRecord, status: .failed, message: error.localizedDescription)
             }
         }
     }
@@ -818,6 +1122,14 @@ final class AssetStore: ObservableObject {
         selectedAssetID = asset.id
     }
 
+    func focusAsset(path: String?) {
+        guard let path,
+              let asset = visibleAssets.first(where: { $0.path == path }) else {
+            return
+        }
+        selectedAssetID = asset.id
+    }
+
     func openRisk(_ risk: DashboardRiskItem) {
         selectAsset(path: risk.assetPath)
     }
@@ -840,6 +1152,11 @@ final class AssetStore: ObservableObject {
         UserDefaults.standard.set(data, forKey: Self.managementStateDefaultsKey)
     }
 
+    private func saveAIAuditLog() {
+        guard let data = try? JSONEncoder().encode(aiAuditLog) else { return }
+        UserDefaults.standard.set(data, forKey: Self.aiAuditLogDefaultsKey)
+    }
+
     private func rebuildDashboardSummary() {
         dashboardSummary = DashboardAnalyzer().summary(
             assets: visibleAssets,
@@ -849,11 +1166,18 @@ final class AssetStore: ObservableObject {
             existingSourceCount: existingScanSourceCount,
             isIndexStale: isIndexStale
         )
+        rebuildContextCatalog()
         rebuildOrganizationMap()
     }
 
+    private func rebuildContextCatalog() {
+        contextCatalog = ContextCatalogAnalyzer().catalog(assets: visibleAssets)
+    }
+
     private func rebuildOrganizationMap() {
-        organizationMap = OrganizationAnalyzer().map(assets: visibleAssets, aiSummaries: aiSummaries)
+        organizationMap = OrganizationAnalyzer().map(assets: visibleAssets, aiSummaries: aiSummaries, language: appLanguage)
+        organizerBrief = OrganizerAdvisor().brief(map: organizationMap, assets: visibleAssets, language: appLanguage)
+        organizerRun = OrganizerRunPlanner().plan(map: organizationMap, assets: visibleAssets, language: appLanguage)
     }
 
     private func finishOrganizationMapBuild() {
@@ -877,7 +1201,7 @@ final class AssetStore: ObservableObject {
         pendingCleanupReviewAfterScan = false
         isBuildingCleanupReview = false
         rebuildOrganizationMap()
-        cleanupReviewSession = CleanupReviewAnalyzer().session(goal: cleanupReviewGoal, assets: visibleAssets)
+        cleanupReviewSession = CleanupReviewAnalyzer().session(goal: cleanupReviewGoal, assets: visibleAssets, language: appLanguage)
         lastOrganizationMapDate = Date()
         approvedCleanupGroupIDs = approvedCleanupGroupIDs.intersection(Set(cleanupReviewSession.groups.map(\.id)))
         if let selectedCleanupGroupID,
@@ -887,17 +1211,36 @@ final class AssetStore: ObservableObject {
             selectedCleanupGroupID = cleanupReviewSession.groups.first?.id
         }
         organizerStatus = String(format: t(.cleanupReviewReadyWithCounts), cleanupReviewSession.groups.count, cleanupReviewAffectedAssetCount)
+        if pendingCleanupExecutionPreview {
+            pendingCleanupExecutionPreview = false
+            cleanupExecutionPreview = CleanupExecutionPreview(session: cleanupReviewSession)
+        }
+    }
+
+    private func finishOrganizerRunBuild(presentReview: Bool) {
+        pendingOrganizerRunAfterScan = false
+        isPreparingOrganizerRun = false
+        rebuildOrganizationMap()
+        lastOrganizationMapDate = Date()
+        organizerStatus = organizerRun.status == .empty ? t(.noAssetsIndexed) : t(.organizerRunReady)
+        if presentReview {
+            organizerRunReview = organizerRun
+        }
     }
 
     private func resetOrganizationApprovals(for plan: OrganizationPlan) {
-        approvedOrganizationRecommendationIDs = Set(plan.recommendations.filter(\.isApprovedByDefault).map(\.id))
+        approvedOrganizationRecommendationIDs = Set(
+            plan.recommendations
+                .filter { $0.isApprovedByDefault && $0.canApplyAutomatically }
+                .map(\.id)
+        )
     }
 
     private func pruneOrganizationApprovals() {
         let visiblePaths = Set(visibleAssets.map(\.path))
         let validIDs = Set(
             organizationPlan.recommendations
-                .filter { visiblePaths.contains($0.primaryAssetPath) }
+                .filter { visiblePaths.contains($0.primaryAssetPath) && $0.canApplyAutomatically }
                 .map(\.id)
         )
         approvedOrganizationRecommendationIDs = approvedOrganizationRecommendationIDs.intersection(validIDs)
@@ -956,14 +1299,132 @@ final class AssetStore: ObservableObject {
         }
     }
 
+    private func beginAIAudit(
+        operation: AIAuditOperation,
+        model: String,
+        baseURL: String,
+        assetCount: Int,
+        message: String
+    ) -> AIAuditRecord {
+        let record = AIAuditRecord(
+            operation: operation,
+            status: .started,
+            model: model,
+            baseURL: baseURL,
+            assetCount: assetCount,
+            message: clippedAuditMessage(message)
+        )
+        aiAuditLog.add(record)
+        saveAIAuditLog()
+        return record
+    }
+
+    private func finishAIAudit(_ record: AIAuditRecord, status: AIAuditStatus, message: String) {
+        var updated = record
+        updated.status = status
+        updated.message = clippedAuditMessage(message)
+        updated.finishedAt = Date()
+        aiAuditLog.replace(updated)
+        saveAIAuditLog()
+    }
+
+    private func clippedAuditMessage(_ message: String) -> String {
+        let trimmed = SecretRedactor.auditSafe(message).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > 500 else { return trimmed }
+        return "\(trimmed.prefix(500))..."
+    }
+
+    private func performHideAsset(_ asset: AgentAsset) -> ManagementOperationRecord {
+        managementState.hide(path: asset.path)
+        managementError = nil
+        return ManagementOperationRecord(
+            kind: .hide,
+            status: .applied,
+            originalPath: asset.path,
+            title: asset.title,
+            archivedAsset: nil,
+            message: String(format: t(.hiddenFileStatus), asset.displayPath)
+        )
+    }
+
+    private func performArchiveAsset(
+        _ asset: AgentAsset,
+        reason: String,
+        kind: ManagementOperationKind
+    ) -> ManagementOperationRecord {
+        do {
+            let archived = try archiveService.archive(asset: asset, reason: reason)
+            managementState.hiddenAssetPaths.remove(asset.path)
+            managementState.addArchive(archived)
+            assets.removeAll { $0.path == asset.path }
+            managementError = nil
+            return ManagementOperationRecord(
+                kind: kind,
+                status: .applied,
+                originalPath: asset.path,
+                title: asset.title,
+                archivedAsset: archived,
+                message: String(format: t(.archivedFileStatus), asset.displayPath)
+            )
+        } catch {
+            managementError = error.localizedDescription
+            return ManagementOperationRecord(
+                kind: kind,
+                status: .failed,
+                originalPath: asset.path,
+                title: asset.title,
+                archivedAsset: nil,
+                message: error.localizedDescription
+            )
+        }
+    }
+
+    private func commitManagementOperations(
+        title: String,
+        source: ManagementOperationSource,
+        records: [ManagementOperationRecord]
+    ) {
+        guard !records.isEmpty else { return }
+        let batch = ManagementOperationBatch(title: title, source: source, records: records)
+        managementState.addOperationBatch(batch)
+        saveManagementState()
+        markManagedFileEvent(
+            paths: records.map(\.originalPath),
+            message: String(format: t(.operationBatchApplied), batch.appliedCount, batch.failedCount)
+        )
+        rebuildDashboardSummary()
+        pruneOrganizationApprovals()
+        preserveValidAssetSelectionAfterManagement()
+    }
+
+    private func preserveValidAssetSelectionAfterManagement() {
+        guard let selectedAssetID else { return }
+        if !visibleAssets.contains(where: { $0.id == selectedAssetID }) {
+            self.selectedAssetID = filteredAssets.first?.id
+        }
+    }
+
+    private func mergeArchiveReason(summary: String, primaryPath: String?) -> String {
+        let primary = primaryPath.map { $0.replacingOccurrences(of: NSHomeDirectory(), with: "~") }
+            ?? t(.unknown)
+        return String(format: t(.mergedIntoArchiveReason), primary, summary)
+    }
+
     private func markManagedFileEvent(path: String, message: String) {
+        markManagedFileEvent(paths: [path], message: message)
+    }
+
+    private func markManagedFileEvent(paths: [String], message: String) {
+        let displayPaths = paths
+            .filter { !$0.isEmpty }
+            .map { $0.replacingOccurrences(of: NSHomeDirectory(), with: "~") }
         isIndexStale = true
         lastFileEventDate = Date()
-        lastFileEventPaths = [path.replacingOccurrences(of: NSHomeDirectory(), with: "~")]
+        lastFileEventPaths = displayPaths
         scanProgress = ScanProgress(
             phase: .completed,
-            sourceLabel: "Management",
-            currentPath: path.replacingOccurrences(of: NSHomeDirectory(), with: "~"),
+            sourceLabel: t(.management),
+            currentPath: displayPaths.first ?? "",
             rootsCompleted: scanProgress?.rootsCompleted ?? 0,
             rootCount: scanProgress?.rootCount ?? 0,
             filesVisited: scanProgress?.filesVisited ?? 0,
@@ -1013,5 +1474,13 @@ final class AssetStore: ObservableObject {
             return AssetManagementState()
         }
         return state
+    }
+
+    private static func loadAIAuditLog() -> AIAuditLog {
+        guard let data = UserDefaults.standard.data(forKey: aiAuditLogDefaultsKey),
+              let log = try? JSONDecoder().decode(AIAuditLog.self, from: data) else {
+            return AIAuditLog()
+        }
+        return log
     }
 }

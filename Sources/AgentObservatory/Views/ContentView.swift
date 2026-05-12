@@ -11,7 +11,15 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
         } content: {
             Group {
-                if store.selectedSection == .dashboard {
+                if store.selectedSection == .contextOverview {
+                    ContextOverviewView()
+                } else if store.selectedSection == .memories {
+                    MemoryBrowserView()
+                } else if store.selectedSection == .capabilities {
+                    CapabilityBrowserView()
+                } else if store.selectedSection == .assembly {
+                    ContextAssemblyView()
+                } else if store.selectedSection == .dashboard {
                     DashboardView()
                 } else if store.selectedSection == .organizer {
                     OrganizerView()
@@ -40,6 +48,13 @@ struct ContentView: View {
                     title: store.t(.hiddenItems),
                     message: store.t(.hiddenCenterMessage),
                     systemImage: "eye.slash"
+                )
+                .navigationSplitViewColumnWidth(min: 420, ideal: 620)
+            } else if shouldShowContextPlaceholder {
+                EmptyStateView(
+                    title: store.t(.contextDetailPlaceholder),
+                    message: store.t(.contextDetailPlaceholderMessage),
+                    systemImage: "doc.text.magnifyingglass"
                 )
                 .navigationSplitViewColumnWidth(min: 420, ideal: 620)
             } else {
@@ -79,7 +94,12 @@ struct ContentView: View {
             } label: {
                 Label(store.t(.explain), systemImage: "sparkles")
             }
-            .disabled(store.selectedSection == .archive || store.selectedSection == .hidden || store.selectedSection == .organizer || store.selectedAsset == nil || store.enrichingAssetID != nil)
+            .disabled(
+                store.selectedSection == .archive
+                    || store.selectedSection == .hidden
+                    || store.selectedSection == .organizer
+                    || !canExplainSelectedAsset
+            )
             .help(store.t(.explainWithOpenAI))
 
             if store.isIndexStale {
@@ -111,6 +131,22 @@ struct ContentView: View {
                 .padding(.vertical, 7)
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
+        }
+    }
+
+    private var canExplainSelectedAsset: Bool {
+        guard store.enrichingAssetID == nil, let asset = store.selectedAsset else {
+            return false
+        }
+        return OpenAIPayloadGuard.isSafeForAI(asset)
+    }
+
+    private var shouldShowContextPlaceholder: Bool {
+        switch store.selectedSection {
+        case .contextOverview, .memories, .capabilities, .assembly:
+            store.selectedAssetID == nil
+        default:
+            false
         }
     }
 }

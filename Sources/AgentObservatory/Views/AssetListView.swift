@@ -53,7 +53,11 @@ struct AssetListView: View {
                     .width(88)
 
                     TableColumn(store.t(.status)) { asset in
-                        StatusPillGroup(flags: asset.statusFlags)
+                        StatusPillGroup(
+                            flags: asset.statusFlags,
+                            language: store.appLanguage,
+                            okTitle: store.t(.ok)
+                        )
                     }
                     .width(min: 140, ideal: 220)
 
@@ -198,9 +202,9 @@ private struct AssetListHeader: View {
             HStack(spacing: 10) {
                 Picker(store.t(.owner), selection: $store.selectedOwner) {
                     Text(store.t(.all)).tag(AgentOwner?.none)
-                    Text("Claude").tag(AgentOwner?.some(.claude))
-                    Text("Codex").tag(AgentOwner?.some(.codex))
-                    Text("Agents").tag(AgentOwner?.some(.agents))
+                    Text(L10n.agentOwner(.claude, language: store.appLanguage)).tag(AgentOwner?.some(.claude))
+                    Text(L10n.agentOwner(.codex, language: store.appLanguage)).tag(AgentOwner?.some(.codex))
+                    Text(L10n.agentOwner(.agents, language: store.appLanguage)).tag(AgentOwner?.some(.agents))
                     Text(L10n.agentOwner(.project, language: store.appLanguage)).tag(AgentOwner?.some(.project))
                 }
                 .pickerStyle(.segmented)
@@ -349,12 +353,13 @@ private struct AssetNameCell: View {
 }
 
 private struct StatusPillGroup: View {
-    @EnvironmentObject private var store: AssetStore
     let flags: [AssetStatusFlag]
+    let language: AppLanguage
+    let okTitle: String
 
     var body: some View {
         if flags.isEmpty {
-            Label(store.t(.ok), systemImage: "checkmark.seal")
+            Label(okTitle, systemImage: "checkmark.seal")
                 .foregroundStyle(.green)
                 .font(.caption)
         } else {
@@ -370,7 +375,7 @@ private struct StatusPillGroup: View {
     }
 
     private func shortLabel(for flag: AssetStatusFlag) -> String {
-        L10n.shortStatusFlag(flag, language: store.appLanguage)
+        L10n.shortStatusFlag(flag, language: language)
     }
 
     private func tint(for flag: AssetStatusFlag) -> Color {

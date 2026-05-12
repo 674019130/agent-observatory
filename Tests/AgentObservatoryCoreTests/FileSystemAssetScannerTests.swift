@@ -69,7 +69,10 @@ final class FileSystemAssetScannerTests: XCTestCase {
         XCTAssertFalse(paths.contains("/Users/susu/.codex"))
         XCTAssertFalse(paths.contains("/Users/susu/.agents"))
         XCTAssertTrue(paths.contains("/Users/susu/.claude/commands"))
+        XCTAssertTrue(paths.contains("/Users/susu/.claude/plans"))
+        XCTAssertTrue(paths.contains("/Users/susu/.codex/commands"))
         XCTAssertTrue(paths.contains("/Users/susu/.codex/memories"))
+        XCTAssertTrue(paths.contains("/Users/susu/.codex/automations"))
         XCTAssertTrue(paths.contains("/Users/susu/.agents/skills"))
         XCTAssertTrue(paths.contains("/Users/susu/Documents/New project/AGENTS.md"))
     }
@@ -127,6 +130,34 @@ final class FileSystemAssetScannerTests: XCTestCase {
         ])
 
         XCTAssertEqual(assets.map(\.title), ["enabled"])
+    }
+
+    func testWorkspaceMemorySourceRecursivelyScansMarkdownAndTextAsMemory() throws {
+        let workspace = tempDirectory.appendingPathComponent("workspace-notes")
+        let nestedMarkdown = workspace.appendingPathComponent("team/project/notes.md")
+        let nestedText = workspace.appendingPathComponent("team/project/context.txt")
+        let ignoredJSON = workspace.appendingPathComponent("team/project/data.json")
+
+        try write("# Notes\nLong running workspace memory.", to: nestedMarkdown)
+        try write("Workspace plain-text context.", to: nestedText)
+        try write("{\"not\":\"memory\"}", to: ignoredJSON)
+
+        let assets = FileSystemAssetScanner().scan(sources: [
+            ScanSource(
+                id: "workspace-memory",
+                owner: .project,
+                label: "Workspace Memory",
+                path: workspace.path,
+                scope: "workspace-memory",
+                maxDepth: 8,
+                isEnabled: true,
+                isCustom: true
+            )
+        ])
+
+        XCTAssertEqual(Set(assets.map(\.title)), Set(["Notes", "context"]))
+        XCTAssertTrue(assets.allSatisfy { $0.kind == .memory })
+        XCTAssertTrue(assets.allSatisfy { $0.scope == "workspace-memory" })
     }
 
     func testScannerBeginsProcessingBeforeCollectingEveryCandidate() throws {

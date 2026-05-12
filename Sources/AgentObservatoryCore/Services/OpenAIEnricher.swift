@@ -31,7 +31,8 @@ public struct OpenAIEnricher: Sendable {
         asset: AgentAsset,
         apiKey: String,
         model: String,
-        baseURL: String = OpenAIConfiguration.defaultBaseURL
+        baseURL: String = OpenAIConfiguration.defaultBaseURL,
+        language: AppLanguage = AppLanguage.systemDefault()
     ) async throws -> String {
         let trimmedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedKey.isEmpty else { throw OpenAIEnricherError.missingAPIKey }
@@ -42,20 +43,12 @@ public struct OpenAIEnricher: Sendable {
             throw OpenAIEnricherError.invalidBaseURL(baseURL)
         }
 
-        let input = prompt(for: asset)
+        let input = try prompt(for: asset)
         let payload: [String: Any] = [
             "model": model,
             "store": false,
             "max_output_tokens": 320,
-            "instructions": """
-            You explain local agent configuration files for a technical macOS app.
-            Be concise and factual. Do not claim to have executed code.
-            Return Chinese prose in this exact shape:
-            用途: ...
-            触发: ...
-            依赖: ...
-            风险: ...
-            """,
+            "instructions": instructions(language: language),
             "input": input
         ]
 
@@ -71,7 +64,7 @@ public struct OpenAIEnricher: Sendable {
         }
 
         guard (200..<300).contains(httpResponse.statusCode) else {
-            let body = String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)"
+            let body = SecretRedactor.auditSafe(String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)")
             throw OpenAIEnricherError.requestFailed(body)
         }
 
@@ -81,8 +74,32 @@ public struct OpenAIEnricher: Sendable {
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private func prompt(for asset: AgentAsset) -> String {
-        let preview = String(SecretRedactor.redact(asset.preview).prefix(7_000))
+    private func instructions(language: AppLanguage) -> String {
+        if language == .simplifiedChinese {
+            return """
+            You explain local agent configuration files for a technical macOS app.
+            Be concise and factual. Do not claim to have executed code.
+            Return Chinese prose in this exact shape:
+            用途: ...
+            触发: ...
+            依赖: ...
+            风险: ...
+            """
+        }
+
+        return """
+        You explain local agent configuration files for a technical macOS app.
+        Be concise and factual. Do not claim to have executed code.
+        Return English prose in this exact shape:
+        Purpose: ...
+        Trigger: ...
+        Dependencies: ...
+        Risks: ...
+        """
+    }
+
+    private func prompt(for asset: AgentAsset) throws -> String {
+        let preview = try OpenAIPayloadGuard.safePreview(asset, limit: 7_000)
         return """
         File path: \(asset.displayPath)
         Owner: \(asset.owner.rawValue)

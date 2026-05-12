@@ -219,7 +219,7 @@ private struct SourcesSettingsPane: View {
                     Button {
                         chooseFolder()
                     } label: {
-                        Label(store.t(.addFolder), systemImage: "plus")
+                        Label(store.t(.addWorkspaceMemoryFolder), systemImage: "folder.badge.plus")
                     }
                     .buttonStyle(.borderedProminent)
 
@@ -241,10 +241,10 @@ private struct SourcesSettingsPane: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        panel.prompt = store.t(.addFolder)
+        panel.prompt = store.t(.addWorkspaceMemoryFolder)
 
         if panel.runModal() == .OK, let url = panel.url {
-            store.addCustomSource(url: url)
+            store.addWorkspaceMemorySource(url: url)
         }
     }
 }
@@ -253,80 +253,187 @@ private struct OpenAISettingsPane: View {
     @EnvironmentObject private var store: AssetStore
 
     var body: some View {
-        SettingsPanel(title: store.t(.openAI), systemImage: "sparkles") {
+        VStack(alignment: .leading, spacing: 14) {
+            SettingsPanel(title: store.t(.openAI), systemImage: "sparkles") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(store.t(.openAIDescription))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let error = store.aiErrors["settings"] {
+                        ManagementErrorBanner(message: error)
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(store.t(.apiKey))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        SecureField(store.t(.apiKey), text: $store.openAIKey)
+                            .textFieldStyle(.roundedBorder)
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(store.t(.modelPreset))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Picker(store.t(.modelPreset), selection: Binding(
+                            get: { OpenAIModelPreset.allCases.first { $0.modelID == store.openAIModel }?.modelID ?? "custom" },
+                            set: { value in
+                                if let preset = OpenAIModelPreset.allCases.first(where: { $0.modelID == value }) {
+                                    store.openAIModel = preset.modelID
+                                }
+                            }
+                        )) {
+                            ForEach(OpenAIModelPreset.allCases) { preset in
+                                Text(preset.title).tag(preset.modelID)
+                            }
+                            Text(store.t(.customModel)).tag("custom")
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(maxWidth: 460)
+
+                        Text(store.t(.model))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        TextField(store.t(.model), text: $store.openAIModel)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 320)
+                        Text(store.t(.modelDescription))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(store.t(.baseURL))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        TextField(OpenAIConfiguration.defaultBaseURL, text: $store.openAIBaseURL)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 420)
+                        Text(store.t(.openAIBaseURLDescription))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    HStack {
+                        Spacer()
+                        Button {
+                            store.saveOpenAISettings()
+                        } label: {
+                            Label(store.t(.save), systemImage: "checkmark")
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
+            }
+
+            AIAuditTrailSection()
+        }
+    }
+}
+
+private struct AIAuditTrailSection: View {
+    @EnvironmentObject private var store: AssetStore
+
+    var body: some View {
+        SettingsPanel(title: store.t(.aiAuditTrail), systemImage: "list.clipboard") {
             VStack(alignment: .leading, spacing: 12) {
-                Text(store.t(.openAIDescription))
+                Text(store.t(.aiAuditPrivacyNote))
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                if let error = store.aiErrors["settings"] {
-                    ManagementErrorBanner(message: error)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(store.t(.apiKey))
-                        .font(.caption.weight(.semibold))
+                if store.aiAuditRecords.isEmpty {
+                    Text(store.t(.noAIAuditRecords))
+                        .font(.callout)
                         .foregroundStyle(.secondary)
-                    SecureField(store.t(.apiKey), text: $store.openAIKey)
-                        .textFieldStyle(.roundedBorder)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(store.t(.modelPreset))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    Picker(store.t(.modelPreset), selection: Binding(
-                        get: { OpenAIModelPreset.allCases.first { $0.modelID == store.openAIModel }?.modelID ?? "custom" },
-                        set: { value in
-                            if let preset = OpenAIModelPreset.allCases.first(where: { $0.modelID == value }) {
-                                store.openAIModel = preset.modelID
+                } else {
+                    VStack(spacing: 0) {
+                        ForEach(store.aiAuditRecords.prefix(8)) { record in
+                            AIAuditRecordRow(record: record)
+                            if record.id != store.aiAuditRecords.prefix(8).last?.id {
+                                Divider()
+                                    .padding(.leading, 36)
                             }
                         }
-                    )) {
-                        ForEach(OpenAIModelPreset.allCases) { preset in
-                            Text(preset.title).tag(preset.modelID)
-                        }
-                        Text(store.t(.customModel)).tag("custom")
                     }
-                    .pickerStyle(.segmented)
-                    .frame(maxWidth: 460)
-
-                    Text(store.t(.model))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    TextField(store.t(.model), text: $store.openAIModel)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 320)
-                    Text(store.t(.modelDescription))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(store.t(.baseURL))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    TextField(OpenAIConfiguration.defaultBaseURL, text: $store.openAIBaseURL)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 420)
-                    Text(store.t(.openAIBaseURLDescription))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                HStack {
-                    Spacer()
-                    Button {
-                        store.saveOpenAISettings()
-                    } label: {
-                        Label(store.t(.save), systemImage: "checkmark")
+                    .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Color(nsColor: .separatorColor).opacity(0.45))
                     }
-                    .buttonStyle(.borderedProminent)
                 }
             }
+        }
+    }
+}
+
+private struct AIAuditRecordRow: View {
+    @EnvironmentObject private var store: AssetStore
+    let record: AIAuditRecord
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .foregroundStyle(tint)
+                .frame(width: 18)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(L10n.aiAuditOperation(record.operation, language: store.appLanguage))
+                        .font(.callout.weight(.medium))
+                    BadgeView(text: L10n.aiAuditStatus(record.status, language: store.appLanguage), tint: tint)
+                    CountBadge(count: record.assetCount, tint: .secondary)
+                    Spacer()
+                    Text(record.createdAt.formatted(date: .abbreviated, time: .shortened))
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+
+                Text("\(record.model) · \(record.baseURL)")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+
+                if !record.message.isEmpty {
+                    Text(record.message)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+    }
+
+    private var icon: String {
+        switch record.status {
+        case .started:
+            "clock"
+        case .succeeded:
+            "checkmark.circle.fill"
+        case .failed:
+            "exclamationmark.triangle.fill"
+        case .cancelled:
+            "xmark.circle"
+        }
+    }
+
+    private var tint: Color {
+        switch record.status {
+        case .started:
+            .blue
+        case .succeeded:
+            .green
+        case .failed:
+            .orange
+        case .cancelled:
+            .secondary
         }
     }
 }
