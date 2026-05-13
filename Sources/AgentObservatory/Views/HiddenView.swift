@@ -126,6 +126,7 @@ private struct HiddenAssetRow: View {
                     NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: asset.path)])
                 } label: {
                     Image(systemName: "arrow.up.forward.app")
+                        .compactHitTarget()
                 }
                 .buttonStyle(.bordered)
                 .help(store.t(.showInFinder))
@@ -135,6 +136,7 @@ private struct HiddenAssetRow: View {
                     NSPasteboard.general.setString(asset.path, forType: .string)
                 } label: {
                     Image(systemName: "doc.on.doc")
+                        .compactHitTarget()
                 }
                 .buttonStyle(.bordered)
                 .help(store.t(.copyPath))

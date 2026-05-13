@@ -4,51 +4,8 @@ import SwiftUI
 private let memoryTypeVisibleBatchSize = 40
 
 struct ContextOverviewView: View {
-    @EnvironmentObject private var store: AssetStore
-
-    private var catalog: ContextCatalog { store.contextCatalog }
-
     var body: some View {
-        ScrollView {
-            ContextContentStack {
-                ContextHeroCard(catalog: catalog)
-
-                HStack(spacing: 12) {
-                    ContextMetricCard(
-                        title: store.t(.memoryDomain),
-                        value: catalog.memoryItems.count,
-                        systemImage: "brain.head.profile",
-                        tint: .indigo,
-                        actionTitle: store.t(.viewMemories),
-                        action: store.showMemories
-                    )
-                    ContextMetricCard(
-                        title: store.t(.capabilityDomain),
-                        value: catalog.capabilityItems.count,
-                        systemImage: "wand.and.stars",
-                        tint: .teal,
-                        actionTitle: store.t(.viewCapabilities),
-                        action: store.showCapabilities
-                    )
-                    ContextMetricCard(
-                        title: store.t(.finalContext),
-                        value: catalog.assemblySteps.count,
-                        systemImage: "point.3.connected.trianglepath.dotted",
-                        tint: .blue,
-                        actionTitle: store.t(.viewAssembly),
-                        action: store.showAssembly
-                    )
-                }
-
-                HStack(alignment: .top, spacing: 12) {
-                    ContextSurfaceCard(surface: .claude, catalog: catalog)
-                    ContextSurfaceCard(surface: .codex, catalog: catalog)
-                }
-
-                ContextLayerSummary(catalog: catalog)
-            }
-        }
-        .navigationTitle(store.t(.contextBrowser))
+        ContextTreeView()
     }
 }
 
@@ -79,7 +36,7 @@ struct CapabilityBrowserView: View {
     @EnvironmentObject private var store: AssetStore
 
     private var filteredItems: [ContextCatalogItem] {
-        store.contextCatalog.capabilityItems.filter { item in
+        store.visibleCapabilityItems.filter { item in
             item.asset.matchesSearch(query: store.searchText)
         }
     }
@@ -91,8 +48,9 @@ struct CapabilityBrowserView: View {
             systemImage: "puzzlepiece.extension",
             tint: .teal,
             items: filteredItems,
-            groupTitle: { item in L10n.assetKind(item.asset.kind, language: store.appLanguage) },
-            groupRank: { assetKindSortIndex($0.asset.kind) }
+            groupTitle: { item in capabilityGroupTitle(item, language: store.appLanguage) },
+            groupRank: { capabilityGroupRank($0) },
+            showsSkillVisibilityControl: true
         )
         .navigationTitle(store.t(.capabilities))
     }
@@ -232,7 +190,7 @@ private struct ContextSurfaceCard: View {
 
             HStack(spacing: 8) {
                 BadgeView(text: "\(catalog.memoryCount(for: surface)) \(store.t(.memories))", tint: .indigo)
-                BadgeView(text: "\(catalog.capabilityCount(for: surface)) \(store.t(.capabilities))", tint: .teal)
+                BadgeView(text: "\(visibleCapabilityCount) \(store.t(.capabilities))", tint: .teal)
             }
 
             Divider()
@@ -255,6 +213,8 @@ private struct ContextSurfaceCard: View {
                         }
                         Spacer()
                     }
+                    .padding(.vertical, 4)
+                    .rowHitTarget(cornerRadius: 7)
                 }
                 .buttonStyle(.plain)
             }
@@ -277,6 +237,8 @@ private struct ContextSurfaceCard: View {
                         }
                         Spacer()
                     }
+                    .padding(.vertical, 4)
+                    .rowHitTarget(cornerRadius: 7)
                 }
                 .buttonStyle(.plain)
             }
@@ -302,7 +264,11 @@ private struct ContextSurfaceCard: View {
     }
 
     private var capabilitySteps: [ContextAssemblyStep] {
-        catalog.assemblySteps(for: surface).filter { $0.role == .capability }
+        visibleAssemblySteps(for: surface, catalog: catalog, store: store).filter { $0.role == .capability }
+    }
+
+    private var visibleCapabilityCount: Int {
+        store.visibleCapabilityItems.filter { $0.surfaces.contains(surface) }.count
     }
 
     private func stepTitle(_ step: ContextAssemblyStep) -> String {
@@ -319,7 +285,7 @@ private struct ContextSurfaceMiniPill: View {
         HStack(spacing: 8) {
             Image(systemName: surfaceIcon(surface))
             Text(surface == .claude ? store.t(.claudeCode) : L10n.agentOwner(surface, language: store.appLanguage))
-            Text("\(catalog.memoryCount(for: surface) + catalog.capabilityCount(for: surface))")
+            Text("\(catalog.memoryCount(for: surface) + visibleCapabilityCount)")
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
         }
@@ -329,6 +295,10 @@ private struct ContextSurfaceMiniPill: View {
         .background(ownerTint(surface).opacity(0.12), in: Capsule())
         .foregroundStyle(ownerTint(surface))
     }
+
+    private var visibleCapabilityCount: Int {
+        store.visibleCapabilityItems.filter { $0.surfaces.contains(surface) }.count
+    }
 }
 
 private struct ContextLayerSummary: View {
@@ -336,7 +306,7 @@ private struct ContextLayerSummary: View {
     let catalog: ContextCatalog
 
     private var rows: [(AgentContextLayer, Int)] {
-        let allItems = catalog.memoryItems + catalog.capabilityItems
+        let allItems = catalog.memoryItems + store.visibleCapabilityItems
         return AgentContextLayer.allCases
             .sorted { $0.sortIndex < $1.sortIndex }
             .compactMap { layer in
@@ -386,6 +356,7 @@ private struct ContextItemCollectionView: View {
     let items: [ContextCatalogItem]
     let groupTitle: (ContextCatalogItem) -> String
     let groupRank: (ContextCatalogItem) -> Int
+    var showsSkillVisibilityControl = false
 
     private var groups: [(String, [ContextCatalogItem])] {
         Dictionary(grouping: items, by: groupTitle)
@@ -409,6 +380,10 @@ private struct ContextItemCollectionView: View {
                     systemImage: systemImage,
                     tint: tint
                 )
+
+                if showsSkillVisibilityControl {
+                    SkillVisibilityControl()
+                }
 
                 if groups.isEmpty {
                     EmptyStateView(
@@ -601,6 +576,7 @@ private struct MemoryTypeTile: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 9)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .rowHitTarget()
             .background(tileBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -714,6 +690,46 @@ private struct ContextSectionHeader: View {
     }
 }
 
+private struct SkillVisibilityControl: View {
+    @EnvironmentObject private var store: AssetStore
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Label(store.t(.userSkillsOnly), systemImage: "wand.and.stars")
+                .font(.callout.weight(.medium))
+                .foregroundStyle(.secondary)
+
+            if store.bundledSkillCount > 0 && !store.includeBundledSkills {
+                Text(String(format: store.t(.bundledSkillsHidden), store.bundledSkillCount))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Button {
+                store.includeBundledSkills.toggle()
+            } label: {
+                Label(
+                    store.includeBundledSkills ? store.t(.hideBundledSkills) : store.t(.showBundledSkills),
+                    systemImage: store.includeBundledSkills ? "eye.slash" : "eye"
+                )
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.45))
+        }
+    }
+}
+
 private struct ContextItemGroup: View {
     let title: String
     let items: [ContextCatalogItem]
@@ -767,6 +783,12 @@ private struct ContextItemRow: View {
                             .font(.callout.weight(.semibold))
                             .lineLimit(1)
                         BadgeView(text: L10n.assetKind(item.asset.kind, language: store.appLanguage), tint: contextRoleTint(item.role))
+                        if let skillInstallOrigin = item.loadRoute.skillInstallOrigin {
+                            BadgeView(
+                                text: L10n.skillInstallOrigin(skillInstallOrigin, language: store.appLanguage),
+                                tint: skillInstallOriginTint(skillInstallOrigin)
+                            )
+                        }
                         BadgeView(text: ownerLabel(item.asset.owner), tint: ownerTint(item.asset.owner))
                     }
 
@@ -788,6 +810,7 @@ private struct ContextItemRow: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .rowHitTarget()
             .background(
                 isSelected ? Color.accentColor.opacity(0.12) : Color.clear,
                 in: RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -835,7 +858,7 @@ private struct AssemblyPipeline: View {
     let catalog: ContextCatalog
 
     private var steps: [ContextAssemblyStep] {
-        catalog.assemblySteps(for: surface)
+        visibleAssemblySteps(for: surface, catalog: catalog, store: store)
     }
 
     var body: some View {
@@ -898,9 +921,12 @@ private struct AssemblyStepRow: View {
                     }
 
                     Spacer()
+                    }
+                    .padding(.vertical, 4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .rowHitTarget(cornerRadius: 7)
                 }
-            }
-            .buttonStyle(.plain)
+                .buttonStyle(.plain)
 
             ForEach(Array(step.items.prefix(3))) { item in
                 Button {
@@ -916,12 +942,36 @@ private struct AssemblyStepRow: View {
                     }
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .padding(.vertical, 4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .rowHitTarget(cornerRadius: 7)
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(10)
         .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+@MainActor
+private func visibleAssemblySteps(
+    for surface: AgentOwner,
+    catalog: ContextCatalog,
+    store: AssetStore
+) -> [ContextAssemblyStep] {
+    let memoryItems = catalog.memoryItems.filter { $0.surfaces.contains(surface) }
+    let capabilityItems = store.visibleCapabilityItems.filter { $0.surfaces.contains(surface) }
+    let items = memoryItems + capabilityItems
+
+    return AgentContextRole.allCases.flatMap { role in
+        AgentContextLayer.allCases
+            .sorted { $0.sortIndex < $1.sortIndex }
+            .compactMap { layer in
+                let layerItems = items.filter { $0.role == role && $0.layer == layer }
+                guard !layerItems.isEmpty else { return nil }
+                return ContextAssemblyStep(surface: surface, role: role, layer: layer, items: layerItems)
+            }
     }
 }
 
@@ -990,6 +1040,24 @@ private func assetKindSortIndex(_ kind: AssetKind) -> Int {
     case .session: 9
     case .unknown: 10
     }
+}
+
+private func capabilityGroupTitle(_ item: ContextCatalogItem, language: AppLanguage) -> String {
+    let kind = L10n.assetKind(item.asset.kind, language: language)
+    guard item.asset.kind == .skill, let origin = item.loadRoute.skillInstallOrigin else {
+        return kind
+    }
+
+    return "\(kind) · \(L10n.skillInstallOrigin(origin, language: language))"
+}
+
+private func capabilityGroupRank(_ item: ContextCatalogItem) -> Int {
+    let baseRank = assetKindSortIndex(item.asset.kind) * 10
+    guard item.asset.kind == .skill, let origin = item.loadRoute.skillInstallOrigin else {
+        return baseRank + 9
+    }
+
+    return baseRank + origin.sortIndex
 }
 
 private func contextLayerIcon(_ layer: AgentContextLayer) -> String {
@@ -1064,6 +1132,16 @@ private func ownerTint(_ owner: AgentOwner) -> Color {
     case .codex: .blue
     case .agents: .green
     case .project: .teal
+    case .unknown: .secondary
+    }
+}
+
+private func skillInstallOriginTint(_ origin: SkillInstallOrigin) -> Color {
+    switch origin {
+    case .preset: .blue
+    case .officialPlugin: .teal
+    case .userInstalled: .purple
+    case .projectLocal: .orange
     case .unknown: .secondary
     }
 }

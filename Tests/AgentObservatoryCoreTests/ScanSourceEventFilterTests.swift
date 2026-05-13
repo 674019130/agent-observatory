@@ -47,4 +47,28 @@ final class ScanSourceEventFilterTests: XCTestCase {
 
         XCTAssertEqual(relevant, [projectCodex.appendingPathComponent("environments/environment.toml").path])
     }
+
+    func testWorkspaceMemorySourceMatchesMarkdownAndTextLikeScanner() {
+        let workspace = URL(fileURLWithPath: "/tmp/workspace-memory")
+        let source = ScanSource(
+            id: "workspace-memory",
+            owner: .project,
+            label: "Workspace Memory",
+            path: workspace.path,
+            scope: "workspace-memory",
+            maxDepth: 8,
+            isCustom: true
+        )
+
+        let markdown = workspace.appendingPathComponent("team/context.md").path
+        let text = workspace.appendingPathComponent("team/context.txt").path
+        let json = workspace.appendingPathComponent("team/context.json").path
+
+        let relevant = ScanSourceEventFilter.relevantEventPaths(
+            [markdown, text, json],
+            sources: [source]
+        )
+
+        XCTAssertEqual(relevant, [markdown, text])
+    }
 }

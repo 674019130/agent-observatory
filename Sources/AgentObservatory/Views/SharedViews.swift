@@ -1,6 +1,23 @@
 import AgentObservatoryCore
 import SwiftUI
 
+enum HitTarget {
+    static let compact: CGFloat = 30
+    static let row: CGFloat = 32
+}
+
+extension View {
+    func compactHitTarget(size: CGFloat = HitTarget.compact) -> some View {
+        frame(minWidth: size, minHeight: size)
+            .contentShape(Rectangle())
+    }
+
+    func rowHitTarget(cornerRadius: CGFloat = 8, minHeight: CGFloat = HitTarget.row) -> some View {
+        frame(minHeight: minHeight)
+            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+}
+
 struct BadgeView: View {
     let text: String
     let tint: Color
@@ -13,6 +30,7 @@ struct BadgeView: View {
             .padding(.vertical, 3)
             .background(tint.opacity(0.13), in: Capsule())
             .foregroundStyle(tint)
+            .contentShape(Capsule())
     }
 }
 
@@ -28,6 +46,7 @@ struct CountBadge: View {
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(tint.opacity(0.12), in: Capsule())
+            .contentShape(Capsule())
     }
 }
 

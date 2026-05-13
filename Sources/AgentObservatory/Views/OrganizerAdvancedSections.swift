@@ -284,6 +284,7 @@ private struct CleanupReviewGroupRow: View {
                         store.selectCleanupGroup(group)
                     } label: {
                         Image(systemName: "sidebar.right")
+                            .compactHitTarget()
                     }
                     .buttonStyle(.plain)
                     .help(store.t(.openGroup))

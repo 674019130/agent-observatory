@@ -16,6 +16,7 @@ final class AssetStore: ObservableObject {
     @Published private(set) var aiAuditLog: AIAuditLog
     @Published private(set) var dashboardSummary: DashboardSummary = .empty
     @Published private(set) var contextCatalog: ContextCatalog = .empty
+    @Published private(set) var skillTriggerConflicts: [SkillTriggerConflict] = []
     @Published private(set) var organizationMap: OrganizationMap = .empty
     @Published private(set) var organizerBrief: OrganizerBrief = .empty
     @Published private(set) var organizerRun: OrganizerRun = .empty
@@ -36,12 +37,21 @@ final class AssetStore: ObservableObject {
     @Published var organizerError: String?
     @Published var approvedOrganizationRecommendationIDs: Set<String> = []
     @Published var approvedCleanupGroupIDs: Set<String> = []
-    @Published var selectedSection: WorkspaceSection = .contextOverview
+    @Published var selectedSection: WorkspaceSection = .triggerRadar
+    @Published private(set) var projectRootPath: String?
     @Published var scanSources: [ScanSource]
     @Published var selectedOwner: AgentOwner?
     @Published var selectedKind: AssetKind?
     @Published var selectedHealth: HealthFilter?
     @Published var selectedAssetID: AgentAsset.ID?
+    @Published var selectedContextTreeNodeID: ContextTreeNode.ID?
+    @Published var selectedSkillTriggerConflictID: SkillTriggerConflict.ID?
+    @Published var includeBundledSkills = false {
+        didSet {
+            guard selectedSection == .assets else { return }
+            selectedAssetID = filteredAssets.first?.id
+        }
+    }
     @Published var searchText = ""
     @Published var aiSummaries: [String: String]
     @Published var aiErrors: [String: String] = [:]
@@ -54,6 +64,7 @@ final class AssetStore: ObservableObject {
     @Published var openAIKey = APIKeyStore.shared.loadOpenAIKey()
 
     private static let scanSourcesDefaultsKey = "scanSources.v2"
+    private static let projectRootDefaultsKey = "projectRoot.v1"
     private static let managementStateDefaultsKey = "assetManagementState.v1"
     private static let aiAuditLogDefaultsKey = "aiAuditLog.v1"
     private static let appLanguageDefaultsKey = "appLanguage"
@@ -84,7 +95,11 @@ final class AssetStore: ObservableObject {
         self.scanner = scanner
         self.archiveService = archiveService
         self.summaryCache = summaryCache
-        self.scanSources = Self.loadScanSources(defaultSources: scanner.defaultSources())
+        let loadedProjectRootPath = Self.loadProjectRootPath()
+        self.projectRootPath = loadedProjectRootPath
+        self.scanSources = Self.loadScanSources(
+            defaultSources: scanner.defaultSources(projectDirectory: Self.projectDirectory(from: loadedProjectRootPath))
+        )
         self.managementState = Self.loadManagementState()
         self.aiAuditLog = Self.loadAIAuditLog()
         self.aiSummaries = (try? summaryCache.loadSummaries()) ?? [:]
@@ -184,17 +199,18 @@ final class AssetStore: ObservableObject {
 
     var filteredAssets: [AgentAsset] {
         visibleAssets.filter { asset in
+            let bundledSkillMatches = includeBundledSkills || !isBundledSkill(asset)
             let ownerMatches = selectedOwner == nil || asset.owner == selectedOwner
             let kindMatches = selectedKind == nil || asset.kind == selectedKind
             let healthMatches = selectedHealth?.matches(asset) ?? true
             let queryMatches = asset.matchesSearch(query: searchText)
-            return ownerMatches && kindMatches && healthMatches && queryMatches
+            return bundledSkillMatches && ownerMatches && kindMatches && healthMatches && queryMatches
         }
     }
 
     var selectedAsset: AgentAsset? {
         guard let selectedAssetID else { return filteredAssets.first }
-        return visibleAssets.first { $0.id == selectedAssetID } ?? filteredAssets.first
+        return filteredAssets.first { $0.id == selectedAssetID } ?? filteredAssets.first
     }
 
     var activeScanSources: [ScanSource] {
@@ -205,12 +221,83 @@ final class AssetStore: ObservableObject {
         scanSources.filter { FileManager.default.fileExists(atPath: $0.url.path) }.count
     }
 
+    var activeProjectDirectoryDisplayPath: String {
+        Self.displayPath(Self.projectDirectory(from: projectRootPath).path)
+    }
+
+    var isUsingLaunchDirectoryProjectRoot: Bool {
+        projectRootPath == nil
+    }
+
     var isWatchingSources: Bool {
         !activeScanSources.isEmpty
     }
 
     func healthCount(for filter: HealthFilter) -> Int {
-        visibleAssets.filter { filter.matches($0) }.count
+        visibleAssets.filter { asset in
+            (includeBundledSkills || !isBundledSkill(asset)) && filter.matches(asset)
+        }.count
+    }
+
+    func isBundledSkill(_ asset: AgentAsset) -> Bool {
+        guard asset.kind == .skill else { return false }
+        return ContextLoadAnalyzer().route(for: asset).skillInstallOrigin?.isBundled == true
+    }
+
+    var bundledSkillCount: Int {
+        visibleAssets.filter(isBundledSkill).count
+    }
+
+    var visibleCapabilityItems: [ContextCatalogItem] {
+        contextCatalog.capabilityItems.filter { item in
+            includeBundledSkills || item.loadRoute.skillInstallOrigin?.isBundled != true
+        }
+    }
+
+    var contextTreeNodes: [ContextTreeNode] {
+        ContextTreeBuilder(
+            catalog: contextCatalog,
+            visibleCapabilityItems: visibleCapabilityItems,
+            searchText: searchText,
+            language: appLanguage
+        )
+        .nodes()
+    }
+
+    var selectedContextTreeNode: ContextTreeNode? {
+        guard let selectedContextTreeNodeID else { return nil }
+        return contextTreeNodes
+            .flatMap(\.flattened)
+            .first { $0.id == selectedContextTreeNodeID }
+    }
+
+    var selectedContextTreeGroup: ContextTreeNode? {
+        guard let node = selectedContextTreeNode, !node.isAsset else { return nil }
+        return node
+    }
+
+    var selectedSkillTriggerConflict: SkillTriggerConflict? {
+        guard let selectedSkillTriggerConflictID else {
+            return skillTriggerConflicts.first
+        }
+        return skillTriggerConflicts.first { $0.id == selectedSkillTriggerConflictID } ?? skillTriggerConflicts.first
+    }
+
+    var highSkillTriggerConflictCount: Int {
+        skillTriggerConflicts.filter { $0.severity == .high }.count
+    }
+
+    var mediumSkillTriggerConflictCount: Int {
+        skillTriggerConflicts.filter { $0.severity == .medium }.count
+    }
+
+    var skillTriggerRadarAffectedSkillCount: Int {
+        Set(
+            skillTriggerConflicts.flatMap { conflict in
+                [conflict.primaryAsset.path, conflict.competingAsset.path]
+            }
+        )
+        .count
     }
 
     func organizerBriefMarkdown() -> String {
@@ -244,37 +331,58 @@ final class AssetStore: ObservableObject {
         selectedOwner = nil
         selectedKind = nil
         selectedHealth = nil
+        includeBundledSkills = false
         searchText = ""
+        selectedContextTreeNodeID = nil
+        selectedSkillTriggerConflictID = nil
         selectedAssetID = filteredAssets.first?.id
         selectedSection = .assets
     }
 
+    func showTriggerRadar() {
+        selectedSection = .triggerRadar
+        selectedContextTreeNodeID = nil
+        selectedAssetID = nil
+        selectedSkillTriggerConflictID = selectedSkillTriggerConflict?.id
+    }
+
     func showContextOverview() {
         selectedSection = .contextOverview
+        selectedSkillTriggerConflictID = nil
         selectedAssetID = nil
     }
 
     func showMemories() {
         selectedSection = .memories
+        selectedContextTreeNodeID = nil
+        selectedSkillTriggerConflictID = nil
         selectedAssetID = contextCatalog.memoryItems.first?.asset.id
     }
 
     func showCapabilities() {
         selectedSection = .capabilities
-        selectedAssetID = contextCatalog.capabilityItems.first?.asset.id
+        selectedContextTreeNodeID = nil
+        selectedSkillTriggerConflictID = nil
+        selectedAssetID = visibleCapabilityItems.first?.asset.id
     }
 
     func showAssembly() {
         selectedSection = .assembly
+        selectedContextTreeNodeID = nil
+        selectedSkillTriggerConflictID = nil
         selectedAssetID = nil
     }
 
     func showDashboard() {
         selectedSection = .dashboard
+        selectedContextTreeNodeID = nil
+        selectedSkillTriggerConflictID = nil
     }
 
     func showOrganizer() {
         selectedSection = .organizer
+        selectedContextTreeNodeID = nil
+        selectedSkillTriggerConflictID = nil
         selectedAssetID = nil
         rebuildOrganizationMap()
         if lastOrganizationMapDate == nil {
@@ -284,14 +392,20 @@ final class AssetStore: ObservableObject {
 
     func showAssets() {
         selectedSection = .assets
+        selectedContextTreeNodeID = nil
+        selectedSkillTriggerConflictID = nil
     }
 
     func showArchive() {
         selectedSection = .archive
+        selectedContextTreeNodeID = nil
+        selectedSkillTriggerConflictID = nil
     }
 
     func showHidden() {
         selectedSection = .hidden
+        selectedContextTreeNodeID = nil
+        selectedSkillTriggerConflictID = nil
         selectedAssetID = nil
     }
 
@@ -401,7 +515,10 @@ final class AssetStore: ObservableObject {
                 if let previousSelectedPath,
                    let preserved = visibleScanned.first(where: { $0.path == previousSelectedPath }) {
                     self.selectedAssetID = preserved.id
-                } else if self.selectedSection == .contextOverview || self.selectedSection == .assembly {
+                } else if self.selectedSection == .triggerRadar
+                    || self.selectedSection == .contextOverview
+                    || self.selectedSection == .assembly
+                {
                     self.selectedAssetID = nil
                 } else {
                     self.selectedAssetID = self.filteredAssets.first?.id
@@ -456,6 +573,12 @@ final class AssetStore: ObservableObject {
         startWatchingSources()
         isIndexStale = true
         rebuildDashboardSummary()
+    }
+
+    func setProjectRoot(url: URL) {
+        projectRootPath = url.standardizedFileURL.path
+        UserDefaults.standard.set(projectRootPath, forKey: Self.projectRootDefaultsKey)
+        reloadDefaultScanSources()
     }
 
     func addCustomSource(url: URL) {
@@ -514,7 +637,7 @@ final class AssetStore: ObservableObject {
     }
 
     func resetScanSources() {
-        scanSources = scanner.defaultSources()
+        scanSources = scanner.defaultSources(projectDirectory: Self.projectDirectory(from: projectRootPath))
         saveScanSources()
         startWatchingSources()
         isIndexStale = true
@@ -987,18 +1110,21 @@ final class AssetStore: ObservableObject {
 
     func select(owner: AgentOwner?) {
         selectedSection = .assets
+        selectedContextTreeNodeID = nil
         selectedOwner = owner
         selectedAssetID = filteredAssets.first?.id
     }
 
     func select(kind: AssetKind?) {
         selectedSection = .assets
+        selectedContextTreeNodeID = nil
         selectedKind = kind
         selectedAssetID = filteredAssets.first?.id
     }
 
     func select(health: HealthFilter?) {
         selectedSection = .assets
+        selectedContextTreeNodeID = nil
         selectedHealth = health
         selectedAssetID = filteredAssets.first?.id
     }
@@ -1119,6 +1245,8 @@ final class AssetStore: ObservableObject {
             return
         }
         selectedSection = .assets
+        selectedContextTreeNodeID = nil
+        selectedSkillTriggerConflictID = nil
         selectedAssetID = asset.id
     }
 
@@ -1128,6 +1256,31 @@ final class AssetStore: ObservableObject {
             return
         }
         selectedAssetID = asset.id
+    }
+
+    func selectContextTreeNode(_ node: ContextTreeNode) {
+        selectedSection = .contextOverview
+        selectedContextTreeNodeID = node.id
+        selectedSkillTriggerConflictID = nil
+        selectedAssetID = node.asset?.id
+    }
+
+    func focusContextAsset(path: String?) {
+        guard let path,
+              let asset = visibleAssets.first(where: { $0.path == path }) else {
+            return
+        }
+        selectedSection = .contextOverview
+        selectedContextTreeNodeID = nil
+        selectedSkillTriggerConflictID = nil
+        selectedAssetID = asset.id
+    }
+
+    func selectSkillTriggerConflict(_ conflict: SkillTriggerConflict) {
+        selectedSection = .triggerRadar
+        selectedContextTreeNodeID = nil
+        selectedAssetID = nil
+        selectedSkillTriggerConflictID = conflict.id
     }
 
     func openRisk(_ risk: DashboardRiskItem) {
@@ -1145,6 +1298,15 @@ final class AssetStore: ObservableObject {
     private func saveScanSources() {
         guard let data = try? JSONEncoder().encode(scanSources) else { return }
         UserDefaults.standard.set(data, forKey: Self.scanSourcesDefaultsKey)
+    }
+
+    private func reloadDefaultScanSources() {
+        let defaultSources = scanner.defaultSources(projectDirectory: Self.projectDirectory(from: projectRootPath))
+        scanSources = Self.mergeScanSources(defaultSources: defaultSources, savedSources: scanSources)
+        saveScanSources()
+        startWatchingSources()
+        isIndexStale = true
+        rebuildDashboardSummary()
     }
 
     private func saveManagementState() {
@@ -1172,6 +1334,15 @@ final class AssetStore: ObservableObject {
 
     private func rebuildContextCatalog() {
         contextCatalog = ContextCatalogAnalyzer().catalog(assets: visibleAssets)
+        rebuildSkillTriggerConflicts()
+    }
+
+    private func rebuildSkillTriggerConflicts() {
+        skillTriggerConflicts = SkillTriggerConflictAnalyzer().conflicts(assets: visibleAssets)
+        if let selectedSkillTriggerConflictID,
+           !skillTriggerConflicts.contains(where: { $0.id == selectedSkillTriggerConflictID }) {
+            self.selectedSkillTriggerConflictID = skillTriggerConflicts.first?.id
+        }
     }
 
     private func rebuildOrganizationMap() {
@@ -1453,6 +1624,10 @@ final class AssetStore: ObservableObject {
             return defaultSources
         }
 
+        return mergeScanSources(defaultSources: defaultSources, savedSources: savedSources)
+    }
+
+    private static func mergeScanSources(defaultSources: [ScanSource], savedSources: [ScanSource]) -> [ScanSource] {
         let savedByID = Dictionary(uniqueKeysWithValues: savedSources.map { ($0.id, $0) })
         var merged = defaultSources.map { source in
             guard let saved = savedByID[source.id] else { return source }
@@ -1466,6 +1641,26 @@ final class AssetStore: ObservableObject {
         let defaultIDs = Set(defaultSources.map(\.id))
         merged.append(contentsOf: savedSources.filter { $0.isCustom && !defaultIDs.contains($0.id) })
         return merged
+    }
+
+    private static func loadProjectRootPath() -> String? {
+        guard let value = UserDefaults.standard.string(forKey: projectRootDefaultsKey),
+              !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        return URL(fileURLWithPath: (value as NSString).expandingTildeInPath).standardizedFileURL.path
+    }
+
+    private static func projectDirectory(from path: String?) -> URL {
+        guard let path,
+              !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return URL(fileURLWithPath: FileManager.default.currentDirectoryPath).standardizedFileURL
+        }
+        return URL(fileURLWithPath: (path as NSString).expandingTildeInPath).standardizedFileURL
+    }
+
+    private static func displayPath(_ path: String) -> String {
+        path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
     }
 
     private static func loadManagementState() -> AssetManagementState {

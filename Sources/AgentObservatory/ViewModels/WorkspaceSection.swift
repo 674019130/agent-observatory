@@ -1,6 +1,7 @@
 import Foundation
 
 enum WorkspaceSection: String, CaseIterable, Identifiable {
+    case triggerRadar = "Trigger Radar"
     case contextOverview = "Context Overview"
     case memories = "Memories"
     case capabilities = "Capabilities"

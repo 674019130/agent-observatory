@@ -139,21 +139,22 @@ private struct AssetManagementActionBar: View {
 
             Spacer()
 
-            Button(action: onHide) {
-                Label(store.t(.hide), systemImage: "eye.slash")
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            ControlGroup {
+                Button(action: onHide) {
+                    Image(systemName: "eye.slash")
+                        .compactHitTarget()
+                }
+                .help(store.t(.hide))
 
-            Button(action: onArchive) {
-                Label(store.t(.archiveAction), systemImage: "archivebox")
+                Button(action: onArchive) {
+                    Image(systemName: "archivebox")
+                        .compactHitTarget()
+                }
+                .help(store.t(.archiveAction))
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .tint(.orange)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.vertical, 5)
         .background(.bar)
     }
 }
@@ -199,7 +200,7 @@ private struct AssetListHeader: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Picker(store.t(.owner), selection: $store.selectedOwner) {
                     Text(store.t(.all)).tag(AgentOwner?.none)
                     Text(L10n.agentOwner(.claude, language: store.appLanguage)).tag(AgentOwner?.some(.claude))
@@ -208,17 +209,28 @@ private struct AssetListHeader: View {
                     Text(L10n.agentOwner(.project, language: store.appLanguage)).tag(AgentOwner?.some(.project))
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 330)
+                .frame(width: 292)
 
-                Spacer()
+                AssetFilterMenu()
+
+                if store.bundledSkillCount > 0 && !store.includeBundledSkills {
+                    Image(systemName: "eye.slash")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .help(String(format: store.t(.bundledSkillsHidden), store.bundledSkillCount))
+                }
+
+                Spacer(minLength: 8)
 
                 if hasActiveFilters {
                     Button {
                         store.resetFilters()
                     } label: {
-                        Label(store.t(.reset), systemImage: "line.3.horizontal.decrease.circle")
+                        Image(systemName: "arrow.counterclockwise.circle")
+                            .compactHitTarget()
                     }
                     .buttonStyle(.bordered)
+                    .help(store.t(.resetFilters))
                 }
 
                 Text("\(store.filteredAssets.count) \(store.t(.items))")
@@ -226,13 +238,7 @@ private struct AssetListHeader: View {
                     .font(.callout)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-
-            if store.selectedHealth != nil || store.summary.warnings > 0 {
-                HealthDashboardStrip()
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 10)
-            }
+            .padding(.vertical, 8)
         }
         .background(.bar)
     }
@@ -241,7 +247,65 @@ private struct AssetListHeader: View {
         store.selectedOwner != nil
             || store.selectedKind != nil
             || store.selectedHealth != nil
+            || store.includeBundledSkills
             || !store.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
+private struct AssetFilterMenu: View {
+    @EnvironmentObject private var store: AssetStore
+
+    var body: some View {
+        Menu {
+            Section(store.t(.health)) {
+                Button {
+                    store.select(health: nil)
+                } label: {
+                    Label(store.t(.allHealth), systemImage: store.selectedHealth == nil ? "checkmark" : "circle")
+                }
+
+                ForEach(HealthFilter.allCases) { filter in
+                    Button {
+                        store.select(health: store.selectedHealth == filter ? nil : filter)
+                    } label: {
+                        Label(
+                            "\(filter.title(language: store.appLanguage)) · \(store.healthCount(for: filter))",
+                            systemImage: store.selectedHealth == filter ? "checkmark" : filter.systemImage
+                        )
+                    }
+                }
+            }
+
+            Divider()
+
+            Button {
+                store.includeBundledSkills.toggle()
+            } label: {
+                Label(
+                    bundledSkillToggleTitle,
+                    systemImage: store.includeBundledSkills ? "eye.slash" : "eye"
+                )
+            }
+        } label: {
+            Image(systemName: "line.3.horizontal.decrease.circle")
+                .compactHitTarget()
+        }
+        .menuStyle(.button)
+        .buttonStyle(.bordered)
+        .help(menuTitle)
+    }
+
+    private var menuTitle: String {
+        if let selectedHealth = store.selectedHealth {
+            return selectedHealth.title(language: store.appLanguage)
+        }
+        return store.t(.filters)
+    }
+
+    private var bundledSkillToggleTitle: String {
+        let title = store.includeBundledSkills ? store.t(.hideBundledSkills) : store.t(.showBundledSkills)
+        guard store.bundledSkillCount > 0 else { return title }
+        return "\(title) · \(store.bundledSkillCount)"
     }
 }
 
@@ -267,33 +331,6 @@ private struct AssetListEmptyState: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(40)
-    }
-}
-
-private struct HealthDashboardStrip: View {
-    @EnvironmentObject private var store: AssetStore
-
-    var body: some View {
-        HStack(spacing: 8) {
-            ForEach(HealthFilter.allCases) { filter in
-                Button {
-                    store.select(health: store.selectedHealth == filter ? nil : filter)
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: filter.systemImage)
-                        Text(filter.title(language: store.appLanguage))
-                        Text("\(store.healthCount(for: filter))")
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .tint(store.selectedHealth == filter ? .accentColor : .secondary)
-            }
-
-            Spacer(minLength: 0)
-        }
     }
 }
 

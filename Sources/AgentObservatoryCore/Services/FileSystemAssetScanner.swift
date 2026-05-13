@@ -436,77 +436,11 @@ public final class FileSystemAssetScanner {
     }
 
     private func shouldSkipDirectory(_ url: URL, root: ScanRoot) -> Bool {
-        let name = url.lastPathComponent
-        let lowerPath = url.path.lowercased()
-        let alwaysSkip: Set<String> = [".git", ".build", "node_modules", "dist", "deriveddata", ".tmp", "tmp"]
-        if alwaysSkip.contains(name.lowercased()) { return true }
-
-        if root.owner == .codex {
-            if ["sessions", "archived_sessions", "shell_snapshots", "log", "logs", "sqlite", "ambient-suggestions"].contains(name.lowercased()) {
-                return true
-            }
-            if name.lowercased() == "cache" && !lowerPath.contains("/plugins/cache") {
-                return true
-            }
-        }
-
-        if root.owner == .claude {
-            let skippedClaudeDirectories: Set<String> = [
-                "backups",
-                "cache",
-                "debug",
-                "file-history",
-                "paste-cache",
-                "session-env",
-                "sessions",
-                "shell-snapshots",
-                "statsig",
-                "tasks",
-                "telemetry",
-                "todos",
-                "usage-data"
-            ]
-            if skippedClaudeDirectories.contains(name.lowercased()) {
-                return true
-            }
-        }
-
-        return false
+        AssetSourceRules.shouldSkipDirectory(name: url.lastPathComponent, path: url.path, owner: root.owner)
     }
 
     private func kindFor(url: URL, root: ScanRoot) -> AssetKind? {
-        let name = url.lastPathComponent.lowercased()
-        let ext = url.pathExtension.lowercased()
-        let path = url.path.lowercased()
-
-        if name == "skill.md" { return .skill }
-        if name == "agents.md" || name == "claude.md" { return .instruction }
-        if name == "memory.md" || name == "favorite_tools.md" || (path.contains("/memory/") && ext == "md") || (path.contains("/memories/") && ext == "md") {
-            return .memory
-        }
-        if root.scope.lowercased().contains("workspace") && ["md", "markdown", "txt"].contains(ext) {
-            return .memory
-        }
-        if path.contains("/commands/") && ext == "md" { return .command }
-        if name == ".mcp.json" || (name.contains("mcp") && ["json", "toml", "md"].contains(ext)) { return .mcp }
-        if name == "config.toml" || name == "settings.json" || name == "settings.local.json" || name == "auth.json" || name == ".codex-global-state.json" {
-            return .config
-        }
-        if path.contains("/hooks/") && ["sh", "py", "js", "mjs", "ts", "swift"].contains(ext) {
-            return .script
-        }
-        if ext == "toml" && (path.contains("/.codex/") || path.contains("/environments/")) {
-            return .config
-        }
-        if ext == "rules" || path.contains("/rules/") { return .rule }
-        if path.contains("/scripts/") && ["sh", "py", "js", "mjs", "ts", "swift"].contains(ext) {
-            return .script
-        }
-        if path.contains("/plugins/") && ["json", "toml", "md"].contains(ext) {
-            return .plugin
-        }
-
-        return nil
+        AssetSourceRules.kind(for: url, root: root)
     }
 
     private func readPreview(url: URL, isSensitive: Bool, isLarge: Bool) -> (preview: String, unreadable: Bool) {

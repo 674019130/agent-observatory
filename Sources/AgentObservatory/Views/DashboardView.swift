@@ -327,6 +327,8 @@ private struct RiskRow: View {
                 .foregroundStyle(.secondary)
         }
         .padding(9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .rowHitTarget()
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
@@ -412,6 +414,8 @@ private struct ChangeRow: View {
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .rowHitTarget(cornerRadius: 7)
     }
 }
 
@@ -435,6 +439,8 @@ private struct HotspotRow: View {
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .rowHitTarget(cornerRadius: 7)
     }
 }
 

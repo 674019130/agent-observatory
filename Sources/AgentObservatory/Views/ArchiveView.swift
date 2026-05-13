@@ -146,6 +146,7 @@ private struct ArchivedAssetRow: View {
                     NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: archivedAsset.archivedPath)])
                 } label: {
                     Image(systemName: "arrow.up.forward.app")
+                        .compactHitTarget()
                 }
                 .buttonStyle(.bordered)
                 .help(store.t(.showInFinder))
@@ -155,6 +156,7 @@ private struct ArchivedAssetRow: View {
                     NSPasteboard.general.setString(archivedAsset.originalPath, forType: .string)
                 } label: {
                     Image(systemName: "doc.on.doc")
+                        .compactHitTarget()
                 }
                 .buttonStyle(.bordered)
                 .help(store.t(.copyOriginalPath))

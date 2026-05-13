@@ -77,6 +77,102 @@ final class ContextCatalogAnalyzerTests: XCTestCase {
         XCTAssertEqual(typesByTitle["Plugin instruction"], .pluginProvided)
     }
 
+    func testLoadRoutesExplainWhereContextIsAssembled() {
+        let analyzer = ContextLoadAnalyzer()
+
+        let codexInstructions = analyzer.route(for: asset(
+            path: "/Users/susu/.codex/AGENTS.md",
+            owner: .codex,
+            kind: .instruction,
+            title: "Codex instructions"
+        ))
+        let workspaceMemory = analyzer.route(for: asset(
+            path: "/Users/susu/Workspace/memory/note.md",
+            owner: .project,
+            kind: .memory,
+            scope: "workspace-memory",
+            title: "Workspace note"
+        ))
+        let skill = analyzer.route(for: asset(
+            path: "/Users/susu/.agents/skills/build-mcp-server/SKILL.md",
+            owner: .agents,
+            kind: .skill,
+            title: "build-mcp-server"
+        ))
+        let plugin = analyzer.route(for: asset(
+            path: "/Users/susu/.codex/plugins/cache/github/.app.json",
+            owner: .codex,
+            kind: .plugin,
+            title: "GitHub"
+        ))
+        let mcp = analyzer.route(for: asset(
+            path: "/Users/susu/Project/.mcp.json",
+            owner: .project,
+            kind: .mcp,
+            title: ".mcp"
+        ))
+        let presetSkill = analyzer.route(for: asset(
+            path: "/Users/susu/.codex/skills/.system/openai-docs/SKILL.md",
+            owner: .codex,
+            kind: .skill,
+            title: "openai-docs"
+        ))
+        let officialPluginSkill = analyzer.route(for: asset(
+            path: "/Users/susu/.codex/plugins/cache/openai-curated/github/63976030/skills/github/SKILL.md",
+            owner: .codex,
+            kind: .skill,
+            title: "github"
+        ))
+        let claudeOfficialPluginSkill = analyzer.route(for: asset(
+            path: "/Users/susu/.claude/plugins/marketplaces/claude-plugins-official/plugins/example-plugin/skills/example-skill/SKILL.md",
+            owner: .claude,
+            kind: .skill,
+            title: "example-skill"
+        ))
+        let projectSkill = analyzer.route(for: asset(
+            path: "/Users/susu/Project/.codex/skills/local/SKILL.md",
+            owner: .project,
+            kind: .skill,
+            title: "local"
+        ))
+
+        XCTAssertEqual(codexInstructions.destination, .systemPrompt)
+        XCTAssertTrue(codexInstructions.destination.isPromptMaterial)
+        XCTAssertEqual(codexInstructions.surfaces, [.codex])
+
+        XCTAssertEqual(workspaceMemory.destination, .workspaceContextBlock)
+        XCTAssertEqual(workspaceMemory.trigger, .workspaceSource)
+        XCTAssertTrue(workspaceMemory.destination.isPromptMaterial)
+
+        XCTAssertEqual(skill.destination, .skillRegistry)
+        XCTAssertEqual(skill.trigger, .skillDiscovery)
+        XCTAssertFalse(skill.destination.isPromptMaterial)
+        XCTAssertEqual(skill.surfaces, [.claude, .codex])
+        XCTAssertEqual(skill.skillInstallOrigin, .userInstalled)
+
+        XCTAssertEqual(plugin.destination, .pluginRegistry)
+        XCTAssertEqual(plugin.trigger, .pluginDiscovery)
+        XCTAssertFalse(plugin.destination.isPromptMaterial)
+
+        XCTAssertEqual(mcp.destination, .toolRegistry)
+        XCTAssertEqual(mcp.trigger, .mcpConfiguration)
+
+        XCTAssertEqual(presetSkill.skillInstallOrigin, .preset)
+        XCTAssertEqual(officialPluginSkill.skillInstallOrigin, .officialPlugin)
+        XCTAssertEqual(claudeOfficialPluginSkill.skillInstallOrigin, .officialPlugin)
+        XCTAssertEqual(projectSkill.skillInstallOrigin, .projectLocal)
+    }
+
+    func testCatalogItemsCarryLoadRouteForInspector() {
+        let catalog = ContextCatalogAnalyzer().catalog(assets: [
+            asset(path: "/Users/susu/.codex/plugins/cache/github/.app.json", owner: .codex, kind: .plugin, title: "GitHub"),
+            asset(path: "/Users/susu/.claude/CLAUDE.md", owner: .claude, kind: .instruction, title: "CLAUDE")
+        ])
+
+        XCTAssertEqual(catalog.capabilityItems.first { $0.asset.title == "GitHub" }?.loadRoute.destination, .pluginRegistry)
+        XCTAssertEqual(catalog.memoryItems.first { $0.asset.title == "CLAUDE" }?.loadRoute.destination, .systemPrompt)
+    }
+
     private func asset(
         path: String,
         owner: AgentOwner,

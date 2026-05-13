@@ -56,6 +56,7 @@ struct InspectorView: View {
         case .overview:
             VStack(alignment: .leading, spacing: 18) {
                 SummaryPanel(asset: asset)
+                LoadRoutePanel(asset: asset)
                 MetadataPanel(asset: asset)
                 DiagnosticsPanel(asset: asset)
             }
@@ -138,6 +139,7 @@ private struct InspectorHeader: View {
                     NSPasteboard.general.setString(asset.path, forType: .string)
                 } label: {
                     Image(systemName: "doc.on.doc")
+                        .compactHitTarget()
                 }
                 .buttonStyle(.bordered)
                 .help(store.t(.copyPath))
@@ -145,6 +147,7 @@ private struct InspectorHeader: View {
                     store.hideAsset(asset)
                 } label: {
                     Image(systemName: "eye.slash")
+                        .compactHitTarget()
                 }
                 .buttonStyle(.bordered)
                 .help(store.t(.hideFromObservatory))
@@ -153,6 +156,7 @@ private struct InspectorHeader: View {
                     isShowingArchiveSheet = true
                 } label: {
                     Image(systemName: "archivebox")
+                        .compactHitTarget()
                 }
                 .buttonStyle(.bordered)
                 .tint(.orange)
@@ -230,6 +234,101 @@ private struct SummaryPanel: View {
                         .foregroundStyle(.secondary)
                 }
             }
+        }
+    }
+}
+
+private struct LoadRoutePanel: View {
+    @EnvironmentObject private var store: AssetStore
+    let asset: AgentAsset
+
+    private var route: ContextLoadRoute {
+        ContextLoadAnalyzer().route(for: asset)
+    }
+
+    var body: some View {
+        InspectorPanel(title: store.t(.loadRoute), systemImage: "arrow.triangle.branch") {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(L10n.loadRouteDescription(route, language: store.appLanguage))
+                    .font(.callout)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+
+                LazyVGrid(
+                    columns: [
+                        GridItem(.fixed(112), alignment: .leading),
+                        GridItem(.flexible(), alignment: .leading)
+                    ],
+                    spacing: 10
+                ) {
+                    MetadataRow(
+                        label: store.t(.loadedInto),
+                        value: L10n.loadDestination(route.destination, language: store.appLanguage)
+                    )
+                    MetadataRow(
+                        label: store.t(.loadedHow),
+                        value: L10n.loadTrigger(route.trigger, language: store.appLanguage)
+                    )
+                    MetadataRow(
+                        label: store.t(.promptPlacement),
+                        value: route.destination.isPromptMaterial ? store.t(.promptMaterial) : store.t(.registryMaterial)
+                    )
+                    MetadataRow(
+                        label: store.t(.layer),
+                        value: L10n.contextLayer(route.layer, language: store.appLanguage)
+                    )
+                    if let role = route.role {
+                        MetadataRow(
+                            label: store.t(.kind),
+                            value: L10n.contextRole(role, language: store.appLanguage)
+                        )
+                    }
+                    if let skillInstallOrigin = route.skillInstallOrigin {
+                        MetadataRow(
+                            label: store.t(.skillSource),
+                            value: L10n.skillInstallOrigin(skillInstallOrigin, language: store.appLanguage)
+                        )
+                    }
+                }
+
+                if let skillInstallOrigin = route.skillInstallOrigin {
+                    Label(
+                        L10n.skillInstallOriginDescription(skillInstallOrigin, language: store.appLanguage),
+                        systemImage: "wand.and.stars"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+
+                if !route.surfaces.isEmpty {
+                    HStack(spacing: 7) {
+                        Text(store.t(.usedBy))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        ForEach(route.surfaces) { surface in
+                            BadgeView(
+                                text: surface == .claude ? store.t(.claudeCode) : L10n.agentOwner(surface, language: store.appLanguage),
+                                tint: tint(for: surface)
+                            )
+                        }
+                    }
+                }
+
+                Label(store.t(.inferredFromPathAndType), systemImage: "info.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func tint(for owner: AgentOwner) -> Color {
+        switch owner {
+        case .claude: .orange
+        case .codex: .blue
+        case .agents: .green
+        case .project: .teal
+        case .unknown: .secondary
         }
     }
 }
@@ -520,6 +619,7 @@ private struct ReferenceListPanel: View {
                                     store.selectAsset(path: direction == .incoming ? link.sourcePath : link.targetPath)
                                 } label: {
                                     Image(systemName: "arrow.right.circle")
+                                        .compactHitTarget()
                                 }
                                 .buttonStyle(.borderless)
                                 .help(store.t(.openRelatedAsset))

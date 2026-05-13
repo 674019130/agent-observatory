@@ -8,6 +8,15 @@ struct SidebarView: View {
         List {
             Section(store.t(.contextBrowser)) {
                 SidebarFilterRow(
+                    title: store.t(.triggerRadar),
+                    systemImage: "scope",
+                    count: store.skillTriggerConflicts.count,
+                    isSelected: store.selectedSection == .triggerRadar
+                ) {
+                    store.showTriggerRadar()
+                }
+
+                SidebarFilterRow(
                     title: store.t(.overview),
                     systemImage: "rectangle.3.group",
                     count: store.visibleAssets.count,
@@ -28,7 +37,7 @@ struct SidebarView: View {
                 SidebarFilterRow(
                     title: store.t(.capabilities),
                     systemImage: "wand.and.stars",
-                    count: store.contextCatalog.capabilityItems.count,
+                    count: store.visibleCapabilityItems.count,
                     isSelected: store.selectedSection == .capabilities
                 ) {
                     store.showCapabilities()
@@ -158,6 +167,9 @@ private struct SidebarFilterRow: View {
                 Spacer()
                 CountBadge(count: count, tint: isSelected ? .accentColor : .secondary)
             }
+            .padding(.horizontal, 4)
+            .padding(.vertical, 4)
+            .rowHitTarget(cornerRadius: 7)
         }
         .buttonStyle(.plain)
         .foregroundStyle(isSelected ? .primary : .secondary)

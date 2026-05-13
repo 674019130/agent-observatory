@@ -64,19 +64,22 @@ public struct ContextCatalogItem: Identifiable, Codable, Hashable, Sendable {
     public let layer: AgentContextLayer
     public let memoryType: AgentMemoryType?
     public let surfaces: [AgentOwner]
+    public let loadRoute: ContextLoadRoute
 
     public init(
         asset: AgentAsset,
         role: AgentContextRole,
         layer: AgentContextLayer,
         memoryType: AgentMemoryType? = nil,
-        surfaces: [AgentOwner]
+        surfaces: [AgentOwner],
+        loadRoute: ContextLoadRoute
     ) {
         self.asset = asset
         self.role = role
         self.layer = layer
         self.memoryType = memoryType
         self.surfaces = surfaces
+        self.loadRoute = loadRoute
     }
 }
 

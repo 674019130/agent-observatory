@@ -16,6 +16,10 @@ public enum L10n {
         case existingPaths
         case sources
         case sourcesDescription
+        case projectFolder
+        case projectFolderDescription
+        case setProjectFolder
+        case launchDirectoryFallback
         case addFolder
         case addWorkspaceMemoryFolder
         case resetDefaults
@@ -44,6 +48,38 @@ public enum L10n {
         case unhideAll
         case dashboard
         case aiOrganizer
+        case triggerRadar
+        case triggerRadarSubtitle
+        case triggerConflicts
+        case conflictFree
+        case conflictFreeMessage
+        case highRisk
+        case mediumRisk
+        case lowRisk
+        case affectedSkills
+        case competingSkills
+        case primarySkill
+        case competingSkill
+        case triggerContract
+        case sharedTerms
+        case conflictEvidence
+        case conflictSignals
+        case suggestedAction
+        case confidenceScore
+        case openPrimarySkill
+        case openCompetingSkill
+        case inspectTriggerWording
+        case includedBundledBaseline
+        case exportAgentPrompt
+        case exportAgentPromptDescription
+        case copyAgentPrompt
+        case agentPromptCopied
+        case triggerConflictDetailPlaceholder
+        case triggerConflictDetailPlaceholderMessage
+        case triggerConflictSuggestionBundleOverlap
+        case triggerConflictSuggestionSameName
+        case triggerConflictSuggestionNarrow
+        case triggerConflictSuggestionGeneral
         case contextBrowser
         case contextBrowserSubtitle
         case memories
@@ -73,6 +109,21 @@ public enum L10n {
         case contextLayerWorkspace
         case contextRoleMemory
         case contextRoleCapability
+        case loadRoute
+        case loadedInto
+        case loadedHow
+        case promptPlacement
+        case promptMaterial
+        case registryMaterial
+        case inferredFromPathAndType
+        case skillSource
+        case capabilitySource
+        case filters
+        case allHealth
+        case userSkillsOnly
+        case showBundledSkills
+        case hideBundledSkills
+        case bundledSkillsHidden
         case usedBy
         case layer
         case noContextItems
@@ -498,6 +549,40 @@ public enum L10n {
         }
     }
 
+    public static func skillTriggerConflictSeverity(
+        _ severity: SkillTriggerConflictSeverity,
+        language: AppLanguage
+    ) -> String {
+        switch (severity, language) {
+        case (.high, .simplifiedChinese): text(.highRisk, language: language)
+        case (.medium, .simplifiedChinese): text(.mediumRisk, language: language)
+        case (.low, .simplifiedChinese): text(.lowRisk, language: language)
+        case (.high, _): "High risk"
+        case (.medium, _): "Medium risk"
+        case (.low, _): "Low risk"
+        }
+    }
+
+    public static func skillTriggerConflictSignal(
+        _ signal: SkillTriggerConflictSignal,
+        language: AppLanguage
+    ) -> String {
+        switch (signal, language) {
+        case (.sameName, .simplifiedChinese): "名称或主题高度相似"
+        case (.sharedTriggerTerms, .simplifiedChinese): "触发词重叠"
+        case (.duplicateSummary, .simplifiedChinese): "说明文本相似"
+        case (.broadTrigger, .simplifiedChinese): "触发范围偏宽"
+        case (.sharedRuntimeSurface, .simplifiedChinese): "会被同一个 agent 看到"
+        case (.userSkillOverlapsBundled, .simplifiedChinese): "用户 Skill 与内置/官方 Skill 重叠"
+        case (.sameName, _): "Similar name or topic"
+        case (.sharedTriggerTerms, _): "Shared trigger terms"
+        case (.duplicateSummary, _): "Similar description"
+        case (.broadTrigger, _): "Broad trigger scope"
+        case (.sharedRuntimeSurface, _): "Shared runtime surface"
+        case (.userSkillOverlapsBundled, _): "User skill overlaps bundled skill"
+        }
+    }
+
     public static func organizationAction(_ action: OrganizationAction, language: AppLanguage) -> String {
         switch (action, language) {
         case (.keep, .simplifiedChinese): "保留"
@@ -604,6 +689,189 @@ public enum L10n {
         case (.instructions, _): "Entry-level instructions such as AGENTS.md and CLAUDE.md."
         case (.contextRules, _): "Rule files, design rules, and runtime constraints."
         case (.pluginProvided, _): "Instructional context injected by plugins, marketplaces, and skill bundles."
+        }
+    }
+
+    public static func contextLayer(_ layer: AgentContextLayer, language: AppLanguage) -> String {
+        switch layer {
+        case .global:
+            text(.contextLayerGlobal, language: language)
+        case .project:
+            text(.contextLayerProject, language: language)
+        case .workspace:
+            text(.contextLayerWorkspace, language: language)
+        case .shared:
+            text(.sharedContext, language: language)
+        case .pluginProvided:
+            text(.pluginProvidedContext, language: language)
+        case .configuration:
+            text(.configurationContext, language: language)
+        case .session:
+            text(.sessionContext, language: language)
+        }
+    }
+
+    public static func contextRole(_ role: AgentContextRole, language: AppLanguage) -> String {
+        switch role {
+        case .memory:
+            text(.contextRoleMemory, language: language)
+        case .capability:
+            text(.contextRoleCapability, language: language)
+        }
+    }
+
+    public static func loadDestination(_ destination: ContextLoadDestination, language: AppLanguage) -> String {
+        switch (destination, language) {
+        case (.systemPrompt, .simplifiedChinese): "系统提示词 / 入口指令"
+        case (.memoryBlock, .simplifiedChinese): "记忆上下文块"
+        case (.projectContextBlock, .simplifiedChinese): "项目上下文块"
+        case (.workspaceContextBlock, .simplifiedChinese): "工作区上下文块"
+        case (.pluginInstructionBlock, .simplifiedChinese): "插件注入指令"
+        case (.skillRegistry, .simplifiedChinese): "Skill 注册表"
+        case (.commandRegistry, .simplifiedChinese): "命令注册表"
+        case (.toolRegistry, .simplifiedChinese): "MCP / 工具注册表"
+        case (.pluginRegistry, .simplifiedChinese): "插件注册表"
+        case (.configuration, .simplifiedChinese): "本地配置"
+        case (.sessionArchive, .simplifiedChinese): "历史记录"
+        case (.supportFile, .simplifiedChinese): "支持文件"
+        case (.indexOnly, .simplifiedChinese): "仅 Observatory 索引"
+        case (.systemPrompt, _): "System Prompt / Entry Instructions"
+        case (.memoryBlock, _): "Memory Context Block"
+        case (.projectContextBlock, _): "Project Context Block"
+        case (.workspaceContextBlock, _): "Workspace Context Block"
+        case (.pluginInstructionBlock, _): "Plugin-injected Instructions"
+        case (.skillRegistry, _): "Skill Registry"
+        case (.commandRegistry, _): "Command Registry"
+        case (.toolRegistry, _): "MCP / Tool Registry"
+        case (.pluginRegistry, _): "Plugin Registry"
+        case (.configuration, _): "Local Configuration"
+        case (.sessionArchive, _): "History"
+        case (.supportFile, _): "Support File"
+        case (.indexOnly, _): "Observatory Index Only"
+        }
+    }
+
+    public static func loadTrigger(_ trigger: ContextLoadTrigger, language: AppLanguage) -> String {
+        switch (trigger, language) {
+        case (.globalStartup, .simplifiedChinese): "启动时读取全局来源"
+        case (.projectDiscovery, .simplifiedChinese): "打开项目时按目录发现"
+        case (.workspaceSource, .simplifiedChinese): "从已添加的工作区来源递归扫描"
+        case (.pluginDiscovery, .simplifiedChinese): "扫描插件或 marketplace 包"
+        case (.skillDiscovery, .simplifiedChinese): "扫描 skill 目录并登记"
+        case (.commandDiscovery, .simplifiedChinese): "扫描 command 目录并登记"
+        case (.mcpConfiguration, .simplifiedChinese): "读取 MCP 配置生成工具"
+        case (.settingsConfiguration, .simplifiedChinese): "读取本地设置"
+        case (.sessionHistory, .simplifiedChinese): "作为历史记录保留"
+        case (.supportFileReference, .simplifiedChinese): "被 skill、插件或脚本引用"
+        case (.observatoryIndex, .simplifiedChinese): "只被本应用索引"
+        case (.globalStartup, _): "Loaded from global sources at startup"
+        case (.projectDiscovery, _): "Discovered when a project is opened"
+        case (.workspaceSource, _): "Recursively scanned from an added workspace source"
+        case (.pluginDiscovery, _): "Discovered from plugin or marketplace bundles"
+        case (.skillDiscovery, _): "Registered from a skill directory"
+        case (.commandDiscovery, _): "Registered from a command directory"
+        case (.mcpConfiguration, _): "Read from MCP configuration to create tools"
+        case (.settingsConfiguration, _): "Read from local settings"
+        case (.sessionHistory, _): "Kept as historical context"
+        case (.supportFileReference, _): "Referenced by a skill, plugin, or script"
+        case (.observatoryIndex, _): "Indexed by this app only"
+        }
+    }
+
+    public static func loadRouteDescription(_ route: ContextLoadRoute, language: AppLanguage) -> String {
+        switch (route.destination, language) {
+        case (.systemPrompt, .simplifiedChinese):
+            "这类文件通常作为入口指令进入 Claude Code 或 Codex 的系统/开发者提示词区域。"
+        case (.memoryBlock, .simplifiedChinese):
+            "这类文件通常作为跨会话记忆被检索或汇总后附加到当前上下文。"
+        case (.projectContextBlock, .simplifiedChinese):
+            "这类文件按项目目录生效，通常会被组装到当前项目上下文。"
+        case (.workspaceContextBlock, .simplifiedChinese):
+            "这类文件来自你添加的工作区记忆文件夹，作为工作区级上下文参与浏览和整理。"
+        case (.pluginInstructionBlock, .simplifiedChinese):
+            "这类文件由插件包提供，通常在插件、skill 或规则被启用时注入说明性上下文。"
+        case (.skillRegistry, .simplifiedChinese):
+            "Skill 会先进入能力注册表；真正执行时，SKILL.md 的说明才会按需进入上下文。"
+        case (.commandRegistry, .simplifiedChinese):
+            "Command 会先出现在命令注册表；用户触发命令后，其模板或说明才会展开。"
+        case (.toolRegistry, .simplifiedChinese):
+            "MCP 配置主要生成可调用工具，不会把文件正文直接塞进提示词。"
+        case (.pluginRegistry, .simplifiedChinese):
+            "插件清单用于登记插件能力；插件内部的 skill、规则和工具会再分别加载。"
+        case (.configuration, .simplifiedChinese):
+            "配置文件影响运行行为、模型或来源，不应被当作普通提示词内容。"
+        case (.sessionArchive, .simplifiedChinese):
+            "历史记录通常用于回看或生成记忆摘要，不会默认完整进入新会话。"
+        case (.supportFile, .simplifiedChinese):
+            "这是能力的支持文件，通常由 skill、插件或脚本引用，而不是直接注入提示词。"
+        case (.indexOnly, .simplifiedChinese):
+            "当前只能确认它被 Observatory 看到，无法推断会被 Claude Code 或 Codex 直接加载。"
+        case (.systemPrompt, _):
+            "This file is usually assembled into the system or developer instruction area for Claude Code or Codex."
+        case (.memoryBlock, _):
+            "This file is usually retrieved or summarized as cross-session memory and attached to the active context."
+        case (.projectContextBlock, _):
+            "This file is project-scoped and is usually assembled into the current project context."
+        case (.workspaceContextBlock, _):
+            "This file comes from an added workspace memory folder and participates as workspace-level context."
+        case (.pluginInstructionBlock, _):
+            "This file is provided by a plugin bundle and can inject instructions when the plugin, skill, or rule is active."
+        case (.skillRegistry, _):
+            "Skills are registered first; the SKILL.md instructions are loaded into context on demand when the skill is used."
+        case (.commandRegistry, _):
+            "Commands are registered first; their template or instructions expand only after the user triggers the command."
+        case (.toolRegistry, _):
+            "MCP configuration primarily creates callable tools and does not directly insert the file body into the prompt."
+        case (.pluginRegistry, _):
+            "Plugin manifests register plugin capabilities; inner skills, rules, and tools are loaded through their own paths."
+        case (.configuration, _):
+            "Configuration changes runtime behavior, models, or sources and should not be treated as normal prompt text."
+        case (.sessionArchive, _):
+            "History is usually used for review or memory summaries and is not fully loaded into new sessions by default."
+        case (.supportFile, _):
+            "This is a support file referenced by a skill, plugin, or script rather than directly injected into the prompt."
+        case (.indexOnly, _):
+            "The app can see this file, but cannot infer that Claude Code or Codex directly loads it."
+        }
+    }
+
+    public static func skillInstallOrigin(_ origin: SkillInstallOrigin, language: AppLanguage) -> String {
+        switch (origin, language) {
+        case (.preset, .simplifiedChinese): "预置"
+        case (.officialPlugin, .simplifiedChinese): "官方插件"
+        case (.userInstalled, .simplifiedChinese): "用户安装"
+        case (.projectLocal, .simplifiedChinese): "项目本地"
+        case (.unknown, .simplifiedChinese): "来源未知"
+        case (.preset, _): "Preset"
+        case (.officialPlugin, _): "Official Plugin"
+        case (.userInstalled, _): "User Installed"
+        case (.projectLocal, _): "Project Local"
+        case (.unknown, _): "Unknown Source"
+        }
+    }
+
+    public static func skillInstallOriginDescription(_ origin: SkillInstallOrigin, language: AppLanguage) -> String {
+        switch (origin, language) {
+        case (.preset, .simplifiedChinese):
+            "随 Codex 系统、运行时或内置能力一起提供。"
+        case (.officialPlugin, .simplifiedChinese):
+            "来自官方或精选插件包，通常不是用户手写文件。"
+        case (.userInstalled, .simplifiedChinese):
+            "位于用户 skill、Claude skill、Agents skill 或用户安装插件目录。"
+        case (.projectLocal, .simplifiedChinese):
+            "位于当前项目内，只对这个项目或工作区生效。"
+        case (.unknown, .simplifiedChinese):
+            "路径不属于已知的预置、插件或用户 skill 目录。"
+        case (.preset, _):
+            "Provided with the Codex system, runtime, or built-in capability set."
+        case (.officialPlugin, _):
+            "Provided by an official or curated plugin bundle, not usually hand-written by the user."
+        case (.userInstalled, _):
+            "Located in user skill, Claude skill, Agents skill, or user-installed plugin directories."
+        case (.projectLocal, _):
+            "Located inside the current project and scoped to this project or workspace."
+        case (.unknown, _):
+            "The path does not match a known preset, plugin, or user skill directory."
         }
     }
 
@@ -722,6 +990,10 @@ public enum L10n {
         .existingPaths: [.english: "Existing Paths", .simplifiedChinese: "存在路径"],
         .sources: [.english: "Sources", .simplifiedChinese: "扫描源"],
         .sourcesDescription: [.english: "Only enabled sources are scanned. Missing paths stay visible so you can see what the app expected to find.", .simplifiedChinese: "只扫描启用的来源。缺失路径仍会显示，方便你知道应用预期扫描哪些位置。"],
+        .projectFolder: [.english: "Project Folder", .simplifiedChinese: "项目文件夹"],
+        .projectFolderDescription: [.english: "Project-scoped AGENTS, CLAUDE, MCP, and local agent folders are resolved from this folder instead of the app launch directory.", .simplifiedChinese: "项目级 AGENTS、CLAUDE、MCP 和本地 agent 文件夹会从这里解析，而不是依赖应用启动目录。"],
+        .setProjectFolder: [.english: "Set Project Folder", .simplifiedChinese: "设置项目文件夹"],
+        .launchDirectoryFallback: [.english: "Using launch directory", .simplifiedChinese: "使用启动目录"],
         .addFolder: [.english: "Add Folder", .simplifiedChinese: "添加文件夹"],
         .addWorkspaceMemoryFolder: [.english: "Add Workspace Memory Folder", .simplifiedChinese: "添加工作区记忆文件夹"],
         .resetDefaults: [.english: "Reset Defaults", .simplifiedChinese: "恢复默认"],
@@ -750,6 +1022,38 @@ public enum L10n {
         .unhideAll: [.english: "Unhide All", .simplifiedChinese: "全部取消隐藏"],
         .dashboard: [.english: "Dashboard", .simplifiedChinese: "仪表盘"],
         .aiOrganizer: [.english: "AI Organizer", .simplifiedChinese: "AI 整理器"],
+        .triggerRadar: [.english: "Trigger Radar", .simplifiedChinese: "触发雷达"],
+        .triggerRadarSubtitle: [.english: "Find skills that compete for the same intent before the wrong one answers first.", .simplifiedChinese: "找出会抢同一类任务的 Skill，避免错误能力先响应。"],
+        .triggerConflicts: [.english: "Trigger Conflicts", .simplifiedChinese: "触发冲突"],
+        .conflictFree: [.english: "No trigger conflicts found", .simplifiedChinese: "暂未发现触发冲突"],
+        .conflictFreeMessage: [.english: "The current non-archived skill set has no strong local overlap. Re-scan after installing or editing skills.", .simplifiedChinese: "当前未归档的 Skill 中没有明显本地重叠。安装或修改 Skill 后可以重新扫描。"],
+        .highRisk: [.english: "High risk", .simplifiedChinese: "高风险"],
+        .mediumRisk: [.english: "Medium risk", .simplifiedChinese: "中风险"],
+        .lowRisk: [.english: "Low risk", .simplifiedChinese: "低风险"],
+        .affectedSkills: [.english: "Affected Skills", .simplifiedChinese: "受影响 Skill"],
+        .competingSkills: [.english: "Competing Skills", .simplifiedChinese: "竞争 Skill"],
+        .primarySkill: [.english: "Primary Skill", .simplifiedChinese: "主 Skill"],
+        .competingSkill: [.english: "Competing Skill", .simplifiedChinese: "竞争 Skill"],
+        .triggerContract: [.english: "Trigger Contract", .simplifiedChinese: "触发契约"],
+        .sharedTerms: [.english: "Shared Terms", .simplifiedChinese: "重叠词"],
+        .conflictEvidence: [.english: "Why It Conflicts", .simplifiedChinese: "为什么会抢触发"],
+        .conflictSignals: [.english: "Signals", .simplifiedChinese: "信号"],
+        .suggestedAction: [.english: "Suggested Action", .simplifiedChinese: "建议动作"],
+        .confidenceScore: [.english: "Confidence", .simplifiedChinese: "置信度"],
+        .openPrimarySkill: [.english: "Open Primary", .simplifiedChinese: "打开主 Skill"],
+        .openCompetingSkill: [.english: "Open Competing", .simplifiedChinese: "打开竞争 Skill"],
+        .inspectTriggerWording: [.english: "Inspect wording", .simplifiedChinese: "检查触发描述"],
+        .includedBundledBaseline: [.english: "Includes bundled baseline", .simplifiedChinese: "包含内置基线"],
+        .exportAgentPrompt: [.english: "Export Agent Prompt", .simplifiedChinese: "导出处理提示词"],
+        .exportAgentPromptDescription: [.english: "Copy a self-contained prompt with paths, risk, evidence, and safe handling instructions for another agent.", .simplifiedChinese: "复制一段自包含提示词，包含路径、风险、证据和安全处理要求，可交给其他 agent。"],
+        .copyAgentPrompt: [.english: "Copy Prompt", .simplifiedChinese: "复制提示词"],
+        .agentPromptCopied: [.english: "Prompt copied to clipboard.", .simplifiedChinese: "提示词已复制到剪贴板。"],
+        .triggerConflictDetailPlaceholder: [.english: "Select a conflict", .simplifiedChinese: "选择一个触发冲突"],
+        .triggerConflictDetailPlaceholderMessage: [.english: "Pick a radar result to inspect competing skills, shared terms, and a safe next step.", .simplifiedChinese: "选择一条雷达结果后，查看竞争 Skill、重叠词和安全处理建议。"],
+        .triggerConflictSuggestionBundleOverlap: [.english: "Decide whether the user skill intentionally extends the bundled skill. If not, narrow its trigger wording or archive the duplicate user copy.", .simplifiedChinese: "先判断用户 Skill 是否有意扩展内置/官方 Skill；如果不是，就收窄触发描述，或归档重复的用户版本。"],
+        .triggerConflictSuggestionSameName: [.english: "Keep one authoritative skill for this intent, then rename or archive the duplicate so discovery has a single obvious target.", .simplifiedChinese: "为这个意图保留一个权威 Skill，再重命名或归档重复项，让发现阶段只有一个明确目标。"],
+        .triggerConflictSuggestionNarrow: [.english: "Narrow the broader trigger to concrete conditions, file types, or tools so these skills no longer claim the same work.", .simplifiedChinese: "把更宽泛的触发描述收窄到具体条件、文件类型或工具，避免两个 Skill 声称同一件事。"],
+        .triggerConflictSuggestionGeneral: [.english: "Review both trigger descriptions and decide which skill should own this intent before merging or archiving anything.", .simplifiedChinese: "先人工复核两边的触发描述，明确这个意图由哪个 Skill 负责，再决定是否合并或归档。"],
         .contextBrowser: [.english: "Context Browser", .simplifiedChinese: "上下文浏览器"],
         .contextBrowserSubtitle: [.english: "See what Claude Code and Codex remember, which capabilities they can call, and how those pieces assemble into the final agent context.", .simplifiedChinese: "查看 Claude Code 和 Codex 记住了什么、能调用哪些能力，以及这些内容如何组装成最终上下文。"],
         .memories: [.english: "Memories", .simplifiedChinese: "记忆"],
@@ -779,6 +1083,21 @@ public enum L10n {
         .contextLayerWorkspace: [.english: "Workspace Context", .simplifiedChinese: "工作区上下文"],
         .contextRoleMemory: [.english: "Memory", .simplifiedChinese: "记忆"],
         .contextRoleCapability: [.english: "Capability", .simplifiedChinese: "能力"],
+        .loadRoute: [.english: "Load Route", .simplifiedChinese: "加载方式"],
+        .loadedInto: [.english: "Loaded Into", .simplifiedChinese: "加载到"],
+        .loadedHow: [.english: "How It Loads", .simplifiedChinese: "如何加载"],
+        .promptPlacement: [.english: "Prompt Placement", .simplifiedChinese: "提示词位置"],
+        .promptMaterial: [.english: "Prompt material", .simplifiedChinese: "会进入提示词内容"],
+        .registryMaterial: [.english: "Registry or runtime material", .simplifiedChinese: "注册表或运行时材料"],
+        .inferredFromPathAndType: [.english: "Inferred from local path, file type, and source owner.", .simplifiedChinese: "根据本地路径、文件类型和来源推断。"],
+        .skillSource: [.english: "Skill Source", .simplifiedChinese: "Skill 来源"],
+        .capabilitySource: [.english: "Capability Source", .simplifiedChinese: "能力来源"],
+        .filters: [.english: "Filters", .simplifiedChinese: "筛选"],
+        .allHealth: [.english: "All Health", .simplifiedChinese: "全部状态"],
+        .userSkillsOnly: [.english: "User Skills Only", .simplifiedChinese: "仅用户 Skill"],
+        .showBundledSkills: [.english: "Show Preset and Official Skills", .simplifiedChinese: "显示预置和官方 Skill"],
+        .hideBundledSkills: [.english: "Hide Preset and Official Skills", .simplifiedChinese: "隐藏预置和官方 Skill"],
+        .bundledSkillsHidden: [.english: "%d preset or official skills hidden", .simplifiedChinese: "已隐藏 %d 个预置或官方 Skill"],
         .usedBy: [.english: "Used by", .simplifiedChinese: "使用者"],
         .layer: [.english: "Layer", .simplifiedChinese: "层级"],
         .noContextItems: [.english: "No matching context items.", .simplifiedChinese: "没有匹配的上下文项目。"],

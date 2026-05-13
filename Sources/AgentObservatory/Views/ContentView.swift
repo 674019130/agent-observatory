@@ -11,7 +11,9 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
         } content: {
             Group {
-                if store.selectedSection == .contextOverview {
+                if store.selectedSection == .triggerRadar {
+                    SkillTriggerRadarView()
+                } else if store.selectedSection == .contextOverview {
                     ContextOverviewView()
                 } else if store.selectedSection == .memories {
                     MemoryBrowserView()
@@ -40,6 +42,18 @@ struct ContentView: View {
                     systemImage: "archivebox"
                 )
                 .navigationSplitViewColumnWidth(min: 420, ideal: 620)
+            } else if store.selectedSection == .triggerRadar {
+                if let conflict = store.selectedSkillTriggerConflict {
+                    SkillTriggerConflictDetailView(conflict: conflict)
+                        .navigationSplitViewColumnWidth(min: 420, ideal: 620)
+                } else {
+                    EmptyStateView(
+                        title: store.t(.triggerConflictDetailPlaceholder),
+                        message: store.t(.triggerConflictDetailPlaceholderMessage),
+                        systemImage: "scope"
+                    )
+                    .navigationSplitViewColumnWidth(min: 420, ideal: 620)
+                }
             } else if store.selectedSection == .organizer {
                 OrganizerDetailView()
                 .navigationSplitViewColumnWidth(min: 420, ideal: 620)
@@ -50,6 +64,9 @@ struct ContentView: View {
                     systemImage: "eye.slash"
                 )
                 .navigationSplitViewColumnWidth(min: 420, ideal: 620)
+            } else if let contextGroup = store.selectedContextTreeGroup {
+                ContextGroupInspectorView(node: contextGroup)
+                    .navigationSplitViewColumnWidth(min: 420, ideal: 620)
             } else if shouldShowContextPlaceholder {
                 EmptyStateView(
                     title: store.t(.contextDetailPlaceholder),
@@ -68,6 +85,7 @@ struct ContentView: View {
                     NSApp.keyWindow?.firstResponder?.tryToPerform(#selector(NSSplitViewController.toggleSidebar(_:)), with: nil)
                 } label: {
                     Image(systemName: "sidebar.left")
+                        .compactHitTarget()
                 }
                 .help(store.t(.toggleSidebar))
             }
@@ -96,6 +114,7 @@ struct ContentView: View {
             }
             .disabled(
                 store.selectedSection == .archive
+                    || store.selectedSection == .triggerRadar
                     || store.selectedSection == .hidden
                     || store.selectedSection == .organizer
                     || !canExplainSelectedAsset
@@ -121,6 +140,7 @@ struct ContentView: View {
                             store.searchText = ""
                         } label: {
                             Image(systemName: "xmark.circle.fill")
+                                .compactHitTarget()
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(.secondary)
@@ -135,6 +155,9 @@ struct ContentView: View {
     }
 
     private var canExplainSelectedAsset: Bool {
+        guard store.selectedContextTreeGroup == nil else {
+            return false
+        }
         guard store.enrichingAssetID == nil, let asset = store.selectedAsset else {
             return false
         }

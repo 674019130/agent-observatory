@@ -101,6 +101,7 @@ private struct SettingsSidebar: View {
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 7)
+                        .rowHitTarget(cornerRadius: 7)
                         .background(selection == pane ? Color.accentColor.opacity(0.14) : Color.clear, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                     }
                     .buttonStyle(.plain)
@@ -194,49 +195,96 @@ private struct SourcesSettingsPane: View {
     @EnvironmentObject private var store: AssetStore
 
     var body: some View {
-        SettingsPanel(title: store.t(.sources), systemImage: "folder.badge.gearshape") {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(store.t(.sourcesDescription))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 14) {
+            SettingsPanel(title: store.t(.projectFolder), systemImage: "folder") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(store.t(.projectFolderDescription))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
 
-                VStack(spacing: 0) {
-                    ForEach(store.scanSources) { source in
-                        ScanSourceSettingsRow(source: source)
-                        if source.id != store.scanSources.last?.id {
-                            Divider()
-                                .padding(.leading, 36)
+                    HStack(alignment: .center, spacing: 10) {
+                        Image(systemName: store.isUsingLaunchDirectoryProjectRoot ? "location" : "folder.fill")
+                            .foregroundStyle(store.isUsingLaunchDirectoryProjectRoot ? .orange : .teal)
+                            .frame(width: 20)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(store.isUsingLaunchDirectoryProjectRoot ? store.t(.launchDirectoryFallback) : store.t(.projectFolder))
+                                .font(.callout.weight(.medium))
+                            Text(store.activeProjectDirectoryDisplayPath)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+
+                        Spacer()
+
+                        Button {
+                            chooseProjectFolder()
+                        } label: {
+                            Label(store.t(.setProjectFolder), systemImage: "folder.badge.gearshape")
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
+            }
+
+            SettingsPanel(title: store.t(.sources), systemImage: "folder.badge.gearshape") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(store.t(.sourcesDescription))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+
+                    VStack(spacing: 0) {
+                        ForEach(store.scanSources) { source in
+                            ScanSourceSettingsRow(source: source)
+                            if source.id != store.scanSources.last?.id {
+                                Divider()
+                                    .padding(.leading, 36)
+                            }
                         }
                     }
-                }
-                .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(Color(nsColor: .separatorColor).opacity(0.45))
-                }
-
-                HStack {
-                    Button {
-                        chooseFolder()
-                    } label: {
-                        Label(store.t(.addWorkspaceMemoryFolder), systemImage: "folder.badge.plus")
+                    .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Color(nsColor: .separatorColor).opacity(0.45))
                     }
-                    .buttonStyle(.borderedProminent)
 
-                    Button {
-                        store.resetScanSources()
-                    } label: {
-                        Label(store.t(.resetDefaults), systemImage: "arrow.counterclockwise")
+                    HStack {
+                        Button {
+                            chooseWorkspaceMemoryFolder()
+                        } label: {
+                            Label(store.t(.addWorkspaceMemoryFolder), systemImage: "folder.badge.plus")
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button {
+                            store.resetScanSources()
+                        } label: {
+                            Label(store.t(.resetDefaults), systemImage: "arrow.counterclockwise")
+                        }
+                        .buttonStyle(.bordered)
+
+                        Spacer()
                     }
-                    .buttonStyle(.bordered)
-
-                    Spacer()
                 }
             }
         }
     }
 
-    private func chooseFolder() {
+    private func chooseProjectFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = store.t(.setProjectFolder)
+
+        if panel.runModal() == .OK, let url = panel.url {
+            store.setProjectRoot(url: url)
+        }
+    }
+
+    private func chooseWorkspaceMemoryFolder() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
@@ -531,6 +579,7 @@ private struct ScanSourceSettingsRow: View {
                     store.removeSource(source)
                 } label: {
                     Image(systemName: "trash")
+                        .compactHitTarget()
                 }
                 .buttonStyle(.borderless)
                 .help(store.t(.removeCustomSource))

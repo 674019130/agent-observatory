@@ -34,11 +34,20 @@ losing them.
 
 - **Focused local scanning**  
   Index Claude, Codex, Agents, plugin, and project sources without crawling your
-  whole filesystem.
+  whole filesystem. Project-scoped sources resolve from a configurable Project
+  Folder, so app launches are not tied to the process working directory.
 
 - **Search with real context**  
   Search across titles, summaries, paths, preview text, dependencies, triggers,
   and status flags.
+
+- **Context browser for Claude Code and Codex**  
+  See memories, capabilities, and assembly steps side by side so it is clear
+  which files become prompt material, registries, support files, or history.
+
+- **Skill trigger radar**  
+  Detect user, project, bundled, and plugin skills that compete for the same
+  intent before the wrong capability answers first.
 
 - **Dashboard for risk and drift**  
   See stale paths, duplicate identities, unreadable files, large files, missing
@@ -91,6 +100,11 @@ Build and verify that the app launches:
 ./script/build_and_run.sh --verify
 ```
 
+After launch, open Settings -> Sources and set the Project Folder for the repo or
+workspace you want to inspect. The app keeps that folder in local preferences and
+uses it for project-level `AGENTS.md`, `CLAUDE.md`, `.mcp.json`, `.codex`, and
+`.claude` sources.
+
 Package a local release zip:
 
 ```bash
@@ -108,10 +122,13 @@ Agent Observatory looks for local agent assets such as:
 - MCP configuration
 - plugin metadata
 - scripts related to agent workflows
+- workspace memory folders containing Markdown or plain-text context
 - sensitive config files that should not be sent to an LLM
 
-The scanner uses explicit source definitions and depth limits. You can enable,
-disable, add, or reset sources from Settings.
+The scanner uses explicit source definitions, depth limits, and a shared source
+rule resolver that is also used by filesystem change detection. You can enable,
+disable, add workspace memory folders, set the project folder, or reset sources
+from Settings.
 
 ## Privacy First
 
@@ -137,8 +154,12 @@ AgentObservatory
 
 Core services include:
 
+- `AssetSourceRules` for the shared scanner and watcher file-matching rules
 - `FileSystemAssetScanner` for focused streaming scans with progress updates
 - `AssetClassifier` for extracting names, summaries, triggers, and health flags
+- `ContextLoadAnalyzer` and `ContextCatalogAnalyzer` for explaining how local
+  files map into Claude Code and Codex memory, capability, and assembly surfaces
+- `SkillTriggerConflictAnalyzer` for finding overlapping skill trigger contracts
 - `DashboardAnalyzer` for risk ranking and dependency hotspots
 - `AssetImpactAnalyzer` for incoming/outgoing reference analysis
 - `RawContentReader` for safe full-content inspection
@@ -166,7 +187,7 @@ dist/AgentObservatory.app
 ## Roadmap
 
 - Dependency graph visualization
-- Per-source scan presets
+- Source presets for additional agent runtimes
 - Import/export for management state
 - Developer ID signing and notarization
 

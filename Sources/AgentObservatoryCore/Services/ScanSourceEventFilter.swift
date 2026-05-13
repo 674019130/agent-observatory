@@ -29,7 +29,7 @@ public enum ScanSourceEventFilter {
         if path == sourcePath { return true }
         if exceedsDepth(path: path, root: sourcePath, maxDepth: source.maxDepth) { return false }
         if containsSkippedDirectory(path: path, root: sourcePath, owner: source.owner) { return false }
-        return kindFor(path: path, owner: source.owner) != nil
+        return kindFor(path: path, source: source) != nil
     }
 
     private static func standardize(_ path: String) -> String {
@@ -37,7 +37,7 @@ public enum ScanSourceEventFilter {
     }
 
     private static func isFileSource(_ source: ScanSource) -> Bool {
-        source.maxDepth == 0 && kindFor(path: source.url.standardizedFileURL.path, owner: source.owner) != nil
+        source.maxDepth == 0 && kindFor(path: source.url.standardizedFileURL.path, source: source) != nil
     }
 
     private static func isPath(_ path: String, inside root: String) -> Bool {
@@ -51,40 +51,11 @@ public enum ScanSourceEventFilter {
     private static func containsSkippedDirectory(path: String, root: String, owner: AgentOwner) -> Bool {
         let components = relativeComponents(path: path, root: root).dropLast()
         let lowerPath = path.lowercased()
-        let alwaysSkip: Set<String> = [".git", ".build", "node_modules", "dist", "deriveddata", ".tmp", "tmp"]
 
         for component in components {
             let name = component.lowercased()
-            if alwaysSkip.contains(name) { return true }
-
-            if owner == .codex {
-                if ["sessions", "archived_sessions", "shell_snapshots", "log", "logs", "sqlite", "ambient-suggestions"].contains(name) {
-                    return true
-                }
-                if name == "cache" && !lowerPath.contains("/plugins/cache") {
-                    return true
-                }
-            }
-
-            if owner == .claude {
-                let skippedClaudeDirectories: Set<String> = [
-                    "backups",
-                    "cache",
-                    "debug",
-                    "file-history",
-                    "paste-cache",
-                    "session-env",
-                    "sessions",
-                    "shell-snapshots",
-                    "statsig",
-                    "tasks",
-                    "telemetry",
-                    "todos",
-                    "usage-data"
-                ]
-                if skippedClaudeDirectories.contains(name) {
-                    return true
-                }
+            if AssetSourceRules.shouldSkipDirectory(name: name, path: lowerPath, owner: owner) {
+                return true
             }
         }
 
@@ -98,36 +69,7 @@ public enum ScanSourceEventFilter {
         return Array(pathComponents.dropFirst(rootComponents.count))
     }
 
-    private static func kindFor(path: String, owner: AgentOwner) -> AssetKind? {
-        let url = URL(fileURLWithPath: path)
-        let name = url.lastPathComponent.lowercased()
-        let ext = url.pathExtension.lowercased()
-        let lowerPath = path.lowercased()
-
-        if name == "skill.md" { return .skill }
-        if name == "agents.md" || name == "claude.md" { return .instruction }
-        if name == "memory.md" || name == "favorite_tools.md" || (lowerPath.contains("/memory/") && ext == "md") || (lowerPath.contains("/memories/") && ext == "md") {
-            return .memory
-        }
-        if lowerPath.contains("/commands/") && ext == "md" { return .command }
-        if name == ".mcp.json" || (name.contains("mcp") && ["json", "toml", "md"].contains(ext)) { return .mcp }
-        if name == "config.toml" || name == "settings.json" || name == "settings.local.json" || name == "auth.json" || name == ".codex-global-state.json" {
-            return .config
-        }
-        if lowerPath.contains("/hooks/") && ["sh", "py", "js", "mjs", "ts", "swift"].contains(ext) {
-            return .script
-        }
-        if ext == "toml" && (lowerPath.contains("/.codex/") || lowerPath.contains("/environments/")) {
-            return .config
-        }
-        if ext == "rules" || lowerPath.contains("/rules/") { return .rule }
-        if lowerPath.contains("/scripts/") && ["sh", "py", "js", "mjs", "ts", "swift"].contains(ext) {
-            return .script
-        }
-        if lowerPath.contains("/plugins/") && ["json", "toml", "md"].contains(ext) {
-            return .plugin
-        }
-
-        return nil
+    private static func kindFor(path: String, source: ScanSource) -> AssetKind? {
+        AssetSourceRules.kind(for: path, source: source)
     }
 }
