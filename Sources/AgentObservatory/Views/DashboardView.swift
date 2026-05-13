@@ -193,12 +193,11 @@ private struct RecentChangesSection: View {
                 } else {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(visibleChanges) { change in
-                            Button {
-                                store.openChange(change)
-                            } label: {
-                                ChangeRow(change: change)
-                            }
-                            .buttonStyle(.plain)
+                            ChangeRow(change: change)
+                                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                                .onTapGesture {
+                                    store.openChange(change)
+                                }
                         }
                     }
                 }
@@ -395,6 +394,7 @@ private struct DriftCounter: View {
 }
 
 private struct ChangeRow: View {
+    @EnvironmentObject private var store: AssetStore
     let change: AssetChange
 
     var body: some View {
@@ -404,10 +404,13 @@ private struct ChangeRow: View {
                 Text(change.title)
                     .font(.callout.weight(.medium))
                     .lineLimit(1)
-                Text(displayPath(change.path))
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                PathPreviewLink(
+                    path: change.path,
+                    displayPath: displayPath(change.path),
+                    font: .caption.monospaced(),
+                    foregroundColor: .secondary,
+                    language: store.appLanguage
+                )
             }
             Spacer()
             Image(systemName: "arrow.right.circle")

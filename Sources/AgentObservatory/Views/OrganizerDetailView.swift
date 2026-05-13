@@ -82,12 +82,11 @@ private struct CleanupReviewGroupDetail: View {
                 InspectorPanel(title: store.t(.affectedAssets), systemImage: "tray.full") {
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach(assets) { asset in
-                            Button {
-                                store.selectAsset(path: asset.path)
-                            } label: {
-                                OrganizerAssetSummary(asset: asset)
-                            }
-                            .buttonStyle(.plain)
+                            OrganizerAssetSummary(asset: asset)
+                                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                .onTapGesture {
+                                    store.selectAsset(path: asset.path)
+                                }
                         }
                     }
                 }
@@ -191,10 +190,13 @@ private struct OrganizerRecommendationDetail: View {
                     if let primaryAsset {
                         OrganizerAssetSummary(asset: primaryAsset)
                     } else {
-                        Text(displayPath(recommendation.primaryAssetPath))
-                            .font(.caption.monospaced())
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
+                        PathPreviewLink(
+                            path: recommendation.primaryAssetPath,
+                            displayPath: displayPath(recommendation.primaryAssetPath),
+                            font: .caption.monospaced(),
+                            foregroundColor: .secondary,
+                            language: store.appLanguage
+                        )
                     }
 
                     HStack {
@@ -226,12 +228,11 @@ private struct OrganizerRecommendationDetail: View {
                     } else {
                         VStack(alignment: .leading, spacing: 10) {
                             ForEach(relatedAssets) { asset in
-                                Button {
-                                    store.selectAsset(path: asset.path)
-                                } label: {
-                                    OrganizerAssetSummary(asset: asset)
-                                }
-                                .buttonStyle(.plain)
+                                OrganizerAssetSummary(asset: asset)
+                                    .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                    .onTapGesture {
+                                        store.selectAsset(path: asset.path)
+                                    }
                             }
                         }
                     }
@@ -336,11 +337,13 @@ private struct OrganizerAssetSummary: View {
                 BadgeView(text: L10n.assetKind(asset.kind, language: store.appLanguage), tint: .blue)
             }
 
-            Text(asset.displayPath)
-                .font(.caption.monospaced())
-                .foregroundStyle(.tertiary)
-                .lineLimit(1)
-                .textSelection(.enabled)
+            PathPreviewLink(
+                path: asset.path,
+                displayPath: asset.displayPath,
+                font: .caption.monospaced(),
+                foregroundColor: .secondary.opacity(0.65),
+                language: store.appLanguage
+            )
 
             if !asset.summary.isEmpty {
                 Text(asset.summary)
@@ -368,11 +371,13 @@ private struct OrganizerDigestSummary: View {
                 BadgeView(text: L10n.agentOwner(digest.owner, language: store.appLanguage), tint: ownerTint(digest.owner))
             }
 
-            Text(displayPath(digest.path))
-                .font(.caption.monospaced())
-                .foregroundStyle(.tertiary)
-                .lineLimit(1)
-                .textSelection(.enabled)
+            PathPreviewLink(
+                path: digest.path,
+                displayPath: displayPath(digest.path),
+                font: .caption.monospaced(),
+                foregroundColor: .secondary.opacity(0.65),
+                language: store.appLanguage
+            )
 
             Text(digest.aiSummary ?? digest.summary)
                 .font(.callout)

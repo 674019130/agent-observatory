@@ -123,10 +123,13 @@ private struct InspectorHeader: View {
             HStack(spacing: 8) {
                 Image(systemName: "folder")
                     .foregroundStyle(.secondary)
-                Text(asset.displayPath)
-                    .font(.system(.callout, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                PathPreviewLink(
+                    path: asset.path,
+                    displayPath: asset.displayPath,
+                    font: .system(.callout, design: .monospaced),
+                    foregroundColor: .secondary,
+                    language: store.appLanguage
+                )
                 Spacer()
                 Button {
                     NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: asset.path)])
@@ -427,10 +430,13 @@ private struct DiffPanel: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(comparison.base.owner.rawValue)
                                 .font(.headline)
-                            Text(comparison.base.displayPath)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                            PathPreviewLink(
+                                path: comparison.base.path,
+                                displayPath: comparison.base.displayPath,
+                                font: .caption.monospaced(),
+                                foregroundColor: .secondary,
+                                language: store.appLanguage
+                            )
                         }
 
                         Spacer()
@@ -439,13 +445,23 @@ private struct DiffPanel: View {
                     }
 
                     if let counterpart = comparison.counterpart {
-                        Button {
-                            store.selectAsset(path: counterpart.path)
-                        } label: {
-                            Label(counterpart.displayPath, systemImage: "arrow.uturn.forward")
-                                .lineLimit(1)
+                        HStack(spacing: 8) {
+                            Button {
+                                store.selectAsset(path: counterpart.path)
+                            } label: {
+                                Image(systemName: "arrow.uturn.forward")
+                                    .compactHitTarget()
+                            }
+                            .buttonStyle(.bordered)
+
+                            PathPreviewLink(
+                                path: counterpart.path,
+                                displayPath: counterpart.displayPath,
+                                font: .callout,
+                                foregroundColor: .primary,
+                                language: store.appLanguage
+                            )
                         }
-                        .buttonStyle(.bordered)
                     } else {
                         Label(store.t(.noCounterpartFound), systemImage: "exclamationmark.triangle")
                             .foregroundStyle(.orange)
@@ -670,10 +686,12 @@ private struct HistoryPanel: View {
 
                     if !store.lastFileEventPaths.isEmpty {
                         ForEach(store.lastFileEventPaths, id: \.self) { path in
-                            Text(path)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                            PathPreviewLink(
+                                path: path,
+                                font: .caption.monospaced(),
+                                foregroundColor: .secondary,
+                                language: store.appLanguage
+                            )
                         }
                     }
                 }
@@ -706,10 +724,13 @@ private struct ChangeListPanel: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(change.title)
                                     .font(.callout.weight(.medium))
-                                Text(change.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
-                                    .font(.caption.monospaced())
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
+                                PathPreviewLink(
+                                    path: change.path,
+                                    displayPath: change.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"),
+                                    font: .caption.monospaced(),
+                                    foregroundColor: .secondary,
+                                    language: store.appLanguage
+                                )
                             }
                         }
                     }

@@ -531,10 +531,14 @@ private struct DetailSkillCard: View {
                 .font(.headline)
                 .lineLimit(2)
 
-            Text(asset.displayPath)
-                .font(.caption.monospaced())
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
+            PathPreviewLink(
+                path: asset.path,
+                displayPath: asset.displayPath,
+                font: .caption.monospaced(),
+                foregroundColor: .secondary,
+                lineLimit: 2,
+                language: store.appLanguage
+            )
 
             HStack(spacing: 8) {
                 Button(buttonTitle, action: action)

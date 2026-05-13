@@ -37,7 +37,7 @@ struct AssetListView: View {
             } else {
                 Table(store.filteredAssets, selection: $store.selectedAssetID) {
                     TableColumn(store.t(.name)) { asset in
-                        AssetNameCell(asset: asset)
+                        AssetNameCell(asset: asset, language: store.appLanguage)
                     }
                     .width(min: 220, ideal: 300)
 
@@ -132,10 +132,16 @@ private struct AssetManagementActionBar: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Label(asset.displayPath, systemImage: "filemenu.and.selection")
-                .font(.caption.monospaced())
+            Image(systemName: "filemenu.and.selection")
+                .font(.caption)
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
+            PathPreviewLink(
+                path: asset.path,
+                displayPath: asset.displayPath,
+                font: .caption.monospaced(),
+                foregroundColor: .secondary,
+                language: store.appLanguage
+            )
 
             Spacer()
 
@@ -183,11 +189,13 @@ private struct ScanningEmptyState: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
 
-                Text(progress.currentPath)
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-                    .frame(maxWidth: 420)
+                PathPreviewLink(
+                    path: progress.currentPath,
+                    font: .caption.monospaced(),
+                    foregroundColor: .secondary.opacity(0.65),
+                    language: store.appLanguage
+                )
+                .frame(maxWidth: 420)
             }
         }
         .padding(40)
@@ -336,6 +344,7 @@ private struct AssetListEmptyState: View {
 
 private struct AssetNameCell: View {
     let asset: AgentAsset
+    let language: AppLanguage
 
     var body: some View {
         HStack(alignment: .center, spacing: 9) {
@@ -351,10 +360,13 @@ private struct AssetNameCell: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                Text(asset.displayPath)
-                    .font(.caption2.monospaced())
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
+                PathPreviewLink(
+                    path: asset.path,
+                    displayPath: asset.displayPath,
+                    font: .caption2.monospaced(),
+                    foregroundColor: .secondary.opacity(0.65),
+                    language: language
+                )
             }
         }
         .padding(.vertical, 4)
@@ -458,10 +470,13 @@ private struct AssetRow: View {
                     .foregroundStyle(.tertiary)
             }
 
-            Text(asset.displayPath)
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .lineLimit(1)
+            PathPreviewLink(
+                path: asset.path,
+                displayPath: asset.displayPath,
+                font: .caption,
+                foregroundColor: .secondary.opacity(0.65),
+                language: store.appLanguage
+            )
         }
         .padding(.vertical, 6)
     }

@@ -221,10 +221,12 @@ private struct ScanStatusView: View {
                         Text(store.t(.indexStaleStatus))
                     }
                     if let path = store.lastFileEventPaths.first {
-                        Text(path)
-                            .font(.caption2.monospaced())
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
+                        PathPreviewLink(
+                            path: path,
+                            font: .caption2.monospaced(),
+                            foregroundColor: .secondary.opacity(0.65),
+                            language: store.appLanguage
+                        )
                     }
                 }
                 .foregroundStyle(.orange)

@@ -94,11 +94,13 @@ private struct HiddenAssetRow: View {
                     Text(asset.title)
                         .font(.callout.weight(.semibold))
                         .lineLimit(1)
-                    Text(asset.displayPath)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .textSelection(.enabled)
+                    PathPreviewLink(
+                        path: asset.path,
+                        displayPath: asset.displayPath,
+                        font: .caption.monospaced(),
+                        foregroundColor: .secondary,
+                        language: store.appLanguage
+                    )
                 }
 
                 Spacer(minLength: 10)

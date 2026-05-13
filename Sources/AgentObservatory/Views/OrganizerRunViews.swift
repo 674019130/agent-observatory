@@ -344,13 +344,13 @@ struct OrganizerActionPackReviewSheet: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 8) {
                         ForEach(pack.assetPaths, id: \.self) { path in
-                            Text(path)
-                                .font(.system(.caption, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                                .textSelection(.enabled)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                            PathPreviewLink(
+                                path: path,
+                                font: .system(.caption, design: .monospaced),
+                                foregroundColor: .secondary,
+                                language: store.appLanguage
+                            )
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
                     .padding(10)

@@ -79,30 +79,31 @@ struct ContextGroupInspectorView: View {
         InspectorPanel(title: store.t(.affectedFiles), systemImage: "doc.text") {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(items.prefix(12)) { item in
-                    Button {
-                        store.focusContextAsset(path: item.asset.path)
-                    } label: {
-                        HStack(spacing: 9) {
-                            Image(systemName: assetKindIcon(item.asset.kind))
-                                .foregroundStyle(item.role == .memory ? .indigo : .teal)
-                                .frame(width: 18)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.asset.title)
-                                    .font(.callout.weight(.medium))
-                                    .foregroundStyle(.primary)
-                                    .lineLimit(1)
-                                Text(item.asset.displayPath)
-                                    .font(.caption.monospaced())
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                            Spacer()
+                    HStack(spacing: 9) {
+                        Image(systemName: assetKindIcon(item.asset.kind))
+                            .foregroundStyle(item.role == .memory ? .indigo : .teal)
+                            .frame(width: 18)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.asset.title)
+                                .font(.callout.weight(.medium))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                            PathPreviewLink(
+                                path: item.asset.path,
+                                displayPath: item.asset.displayPath,
+                                font: .caption.monospaced(),
+                                foregroundColor: .secondary,
+                                language: store.appLanguage
+                            )
                         }
-                        .padding(.vertical, 4)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .rowHitTarget(cornerRadius: 7)
+                        Spacer()
                     }
-                    .buttonStyle(.plain)
+                    .padding(.vertical, 4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .rowHitTarget(cornerRadius: 7)
+                    .onTapGesture {
+                        store.focusContextAsset(path: item.asset.path)
+                    }
                 }
 
                 if items.count > 12 {

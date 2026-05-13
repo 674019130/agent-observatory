@@ -789,55 +789,56 @@ private struct ContextItemRow: View {
     }
 
     var body: some View {
-        Button {
-            store.focusAsset(path: item.asset.path)
-        } label: {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: assetKindIcon(item.asset.kind))
-                    .foregroundStyle(contextRoleTint(item.role))
-                    .frame(width: 18)
-                    .padding(.top, 2)
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: assetKindIcon(item.asset.kind))
+                .foregroundStyle(contextRoleTint(item.role))
+                .frame(width: 18)
+                .padding(.top, 2)
 
-                VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 6) {
-                        Text(item.asset.title)
-                            .font(.callout.weight(.semibold))
-                            .lineLimit(1)
-                        BadgeView(text: L10n.assetKind(item.asset.kind, language: store.appLanguage), tint: contextRoleTint(item.role))
-                        if let skillInstallOrigin = item.loadRoute.skillInstallOrigin {
-                            BadgeView(
-                                text: L10n.skillInstallOrigin(skillInstallOrigin, language: store.appLanguage),
-                                tint: skillInstallOriginTint(skillInstallOrigin)
-                            )
-                        }
-                        BadgeView(text: ownerLabel(item.asset.owner), tint: ownerTint(item.asset.owner))
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 6) {
+                    Text(item.asset.title)
+                        .font(.callout.weight(.semibold))
+                        .lineLimit(1)
+                    BadgeView(text: L10n.assetKind(item.asset.kind, language: store.appLanguage), tint: contextRoleTint(item.role))
+                    if let skillInstallOrigin = item.loadRoute.skillInstallOrigin {
+                        BadgeView(
+                            text: L10n.skillInstallOrigin(skillInstallOrigin, language: store.appLanguage),
+                            tint: skillInstallOriginTint(skillInstallOrigin)
+                        )
                     }
+                    BadgeView(text: ownerLabel(item.asset.owner), tint: ownerTint(item.asset.owner))
+                }
 
-                    Text(item.asset.summary)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                Text(item.asset.summary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
 
-                    HStack(spacing: 6) {
-                        Text(item.asset.displayPath)
-                            .font(.caption2.monospaced())
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
-                        Spacer()
-                        CompactStatusPills(flags: item.asset.statusFlags)
-                    }
+                HStack(spacing: 6) {
+                    PathPreviewLink(
+                        path: item.asset.path,
+                        displayPath: item.asset.displayPath,
+                        font: .caption2.monospaced(),
+                        foregroundColor: .secondary.opacity(0.65),
+                        language: store.appLanguage
+                    )
+                    Spacer()
+                    CompactStatusPills(flags: item.asset.statusFlags)
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .rowHitTarget()
-            .background(
-                isSelected ? Color.accentColor.opacity(0.12) : Color.clear,
-                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-            )
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .rowHitTarget()
+        .background(
+            isSelected ? Color.accentColor.opacity(0.12) : Color.clear,
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
+        .onTapGesture {
+            store.focusAsset(path: item.asset.path)
+        }
     }
 
     private func ownerLabel(_ owner: AgentOwner) -> String {

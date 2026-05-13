@@ -522,18 +522,25 @@ private struct ManagementSettingsPane: View {
                     Text(store.t(.archiveLocationDescription))
                         .font(.callout)
                         .foregroundStyle(.secondary)
-                    Text(archiveDisplayPath)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
-                        .lineLimit(2)
+                    PathPreviewLink(
+                        path: archivePath,
+                        displayPath: archiveDisplayPath,
+                        font: .caption.monospaced(),
+                        foregroundColor: .secondary,
+                        lineLimit: 2,
+                        language: store.appLanguage
+                    )
                 }
             }
         }
     }
 
+    private var archivePath: String {
+        AssetArchiveService.defaultArchiveRoot().path
+    }
+
     private var archiveDisplayPath: String {
-        AssetArchiveService.defaultArchiveRoot().path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+        archivePath.replacingOccurrences(of: NSHomeDirectory(), with: "~")
     }
 }
 
@@ -564,10 +571,13 @@ private struct ScanSourceSettingsRow: View {
                     }
                 }
 
-                Text(source.displayPath)
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                PathPreviewLink(
+                    path: source.url.path,
+                    displayPath: source.displayPath,
+                    font: .caption.monospaced(),
+                    foregroundColor: .secondary,
+                    language: store.appLanguage
+                )
             }
 
             Spacer()

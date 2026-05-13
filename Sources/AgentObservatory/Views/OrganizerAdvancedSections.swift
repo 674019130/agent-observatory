@@ -167,37 +167,39 @@ struct AIRecommendationNotesSection: View {
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 10)], spacing: 10) {
                 ForEach(store.organizationPlan.recommendations.prefix(8)) { recommendation in
-                    Button {
-                        store.selectOrganizationRecommendation(recommendation)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(spacing: 6) {
-                                BadgeView(text: L10n.organizationAction(recommendation.action, language: store.appLanguage), tint: actionTint(recommendation.action))
-                                if !recommendation.canApplyAutomatically {
-                                    BadgeView(text: store.t(.manualRecommendationRequired), tint: .secondary)
-                                }
-                                Spacer()
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 6) {
+                            BadgeView(text: L10n.organizationAction(recommendation.action, language: store.appLanguage), tint: actionTint(recommendation.action))
+                            if !recommendation.canApplyAutomatically {
+                                BadgeView(text: store.t(.manualRecommendationRequired), tint: .secondary)
                             }
-
-                            Text(recommendation.title)
-                                .font(.callout.weight(.semibold))
-                                .lineLimit(2)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Text(recommendation.reason)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(3)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Text(displayPath(recommendation.primaryAssetPath))
-                                .font(.caption2.monospaced())
-                                .foregroundStyle(.tertiary)
-                                .lineLimit(1)
+                            Spacer()
                         }
-                        .padding(10)
-                        .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
-                        .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                        Text(recommendation.title)
+                            .font(.callout.weight(.semibold))
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(recommendation.reason)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                        PathPreviewLink(
+                            path: recommendation.primaryAssetPath,
+                            displayPath: displayPath(recommendation.primaryAssetPath),
+                            font: .caption2.monospaced(),
+                            foregroundColor: .secondary.opacity(0.65),
+                            language: store.appLanguage
+                        )
                     }
-                    .buttonStyle(.plain)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
+                    .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .onTapGesture {
+                        store.selectOrganizationRecommendation(recommendation)
+                    }
                 }
             }
         }
@@ -346,12 +348,11 @@ struct OrganizerMapSection: View {
 
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 10)], spacing: 10) {
                     ForEach(store.organizationMap.buckets.prefix(12)) { bucket in
-                        Button {
-                            store.selectOrganizationBucket(bucket)
-                        } label: {
-                            OrganizerBucketCard(bucket: bucket)
-                        }
-                        .buttonStyle(.plain)
+                        OrganizerBucketCard(bucket: bucket)
+                            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .onTapGesture {
+                                store.selectOrganizationBucket(bucket)
+                            }
                     }
                 }
             }
@@ -422,10 +423,13 @@ private struct OrganizerBucketCard: View {
                         Text(asset.title)
                             .font(.caption.weight(.medium))
                             .lineLimit(1)
-                        Text(displayPath(asset.path))
-                            .font(.caption2.monospaced())
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
+                        PathPreviewLink(
+                            path: asset.path,
+                            displayPath: displayPath(asset.path),
+                            font: .caption2.monospaced(),
+                            foregroundColor: .secondary.opacity(0.65),
+                            language: store.appLanguage
+                        )
                     }
                 }
             }

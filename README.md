@@ -63,7 +63,8 @@ losing them.
 
 - **Raw content inspection**  
   Open the full raw file content when needed, with large-file preflight and
-  secret redaction.
+  secret redaction. Truncated paths can be hovered to preview the full path and
+  clicked to reveal the file in Finder.
 
 - **Soft management tools**  
   Hide noisy files from the main index, restore hidden files later, or archive

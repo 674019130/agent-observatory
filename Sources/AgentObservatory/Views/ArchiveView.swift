@@ -111,11 +111,13 @@ private struct ArchivedAssetRow: View {
                     Text(archivedAsset.title)
                         .font(.callout.weight(.semibold))
                         .lineLimit(1)
-                    Text(archivedAsset.displayOriginalPath)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .textSelection(.enabled)
+                    PathPreviewLink(
+                        path: archivedAsset.originalPath,
+                        displayPath: archivedAsset.displayOriginalPath,
+                        font: .caption.monospaced(),
+                        foregroundColor: .secondary,
+                        language: store.appLanguage
+                    )
                 }
 
                 Spacer(minLength: 10)

@@ -1,4 +1,5 @@
 import AgentObservatoryCore
+import AppKit
 import SwiftUI
 
 enum HitTarget {
@@ -47,6 +48,105 @@ struct CountBadge: View {
             .padding(.vertical, 2)
             .background(tint.opacity(0.12), in: Capsule())
             .contentShape(Capsule())
+    }
+}
+
+struct PathPreviewLink: View {
+    let path: String
+    var displayPath: String?
+    var font: Font = .caption.monospaced()
+    var foregroundColor: Color = .secondary
+    var lineLimit: Int = 1
+    var language: AppLanguage = .english
+
+    @State private var isShowingPreview = false
+
+    private var visiblePath: String {
+        displayPath ?? path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+    }
+
+    var body: some View {
+        Button {
+            FinderPathOpener.reveal(path: path)
+        } label: {
+            HStack(spacing: 4) {
+                Text(visiblePath)
+                    .font(font)
+                    .foregroundStyle(foregroundColor)
+                    .lineLimit(lineLimit)
+                    .truncationMode(.middle)
+                    .underline(isShowingPreview, color: foregroundColor.opacity(0.55))
+
+                Image(systemName: "arrow.up.forward.square")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .opacity(isShowingPreview ? 1 : 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isShowingPreview = hovering
+        }
+        .popover(isPresented: $isShowingPreview, arrowEdge: .bottom) {
+            PathPreviewPopover(path: path, language: language)
+        }
+        .help(path)
+    }
+}
+
+private struct PathPreviewPopover: View {
+    let path: String
+    let language: AppLanguage
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(title, systemImage: "folder")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            Text(path)
+                .font(.caption.monospaced())
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+
+            Label(actionHint, systemImage: "arrow.up.forward.app")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(12)
+        .frame(minWidth: 320, idealWidth: 420, maxWidth: 520, alignment: .leading)
+    }
+
+    private var title: String {
+        switch language {
+        case .english:
+            "Full path"
+        case .simplifiedChinese:
+            "完整路径"
+        }
+    }
+
+    private var actionHint: String {
+        switch language {
+        case .english:
+            "Click the path to reveal it in Finder."
+        case .simplifiedChinese:
+            "点击路径即可在 Finder 中定位。"
+        }
+    }
+}
+
+private enum FinderPathOpener {
+    static func reveal(path: String) {
+        let url = URL(fileURLWithPath: path)
+        if FileManager.default.fileExists(atPath: path) {
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        } else {
+            NSWorkspace.shared.activateFileViewerSelecting([url.deletingLastPathComponent()])
+        }
     }
 }
 
@@ -205,11 +305,14 @@ struct ArchiveConfirmationSheet: View {
                     Text("\(store.t(.archiveAction)) \(asset.title)")
                         .font(.title3.weight(.semibold))
                         .lineLimit(2)
-                    Text(asset.displayPath)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .textSelection(.enabled)
+                    PathPreviewLink(
+                        path: asset.path,
+                        displayPath: asset.displayPath,
+                        font: .caption.monospaced(),
+                        foregroundColor: .secondary,
+                        lineLimit: 2,
+                        language: store.appLanguage
+                    )
                 }
             }
 
