@@ -94,6 +94,39 @@ final class SkillTriggerConflictAnalyzerTests: XCTestCase {
         XCTAssertTrue(prompt.contains("风险等级"))
         XCTAssertTrue(prompt.contains("重叠词"))
         XCTAssertTrue(prompt.contains("不要直接删除文件"))
+        XCTAssertTrue(prompt.contains("处理结果输出格式"))
+        XCTAssertTrue(prompt.contains("## 结论"))
+        XCTAssertTrue(prompt.contains("## 文件处理明细"))
+        XCTAssertTrue(prompt.contains("## 验证"))
+        XCTAssertTrue(prompt.contains("## 剩余人工决策"))
+        XCTAssertTrue(prompt.contains("## 风险与回滚"))
+    }
+
+    func testPromptExporterRequiresEnglishOutputFormatForOtherAgents() throws {
+        let userSkill = asset(
+            path: "/Users/susu/.agents/skills/swiftui-patterns/SKILL.md",
+            owner: .agents,
+            title: "SwiftUI Patterns",
+            summary: "Use when creating or refactoring native macOS SwiftUI scenes and components.",
+            trigger: "Use when creating or refactoring macOS SwiftUI UI."
+        )
+        let bundledSkill = asset(
+            path: "/Users/susu/.codex/plugins/cache/openai-curated/build-macos-apps/123/skills/swiftui-patterns/SKILL.md",
+            owner: .codex,
+            title: "SwiftUI Patterns",
+            summary: "Best practices for building native macOS SwiftUI scenes and components.",
+            trigger: "Use when creating or refactoring macOS SwiftUI UI."
+        )
+        let conflict = try XCTUnwrap(SkillTriggerConflictAnalyzer().conflicts(assets: [userSkill, bundledSkill]).first)
+
+        let prompt = SkillTriggerConflictPromptExporter().prompt(for: conflict, language: .english)
+
+        XCTAssertTrue(prompt.contains("Required output format"))
+        XCTAssertTrue(prompt.contains("## Conclusion"))
+        XCTAssertTrue(prompt.contains("## File Handling Details"))
+        XCTAssertTrue(prompt.contains("## Verification"))
+        XCTAssertTrue(prompt.contains("## Remaining Human Decisions"))
+        XCTAssertTrue(prompt.contains("## Risks and Rollback"))
     }
 
     func testContractComparisonSummarizesWhySkillsCompete() throws {

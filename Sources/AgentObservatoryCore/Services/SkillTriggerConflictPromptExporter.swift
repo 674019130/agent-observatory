@@ -38,6 +38,8 @@ public struct SkillTriggerConflictPromptExporter: Sendable {
 
         建议处理方向：
         \(suggestion(for: conflict, language: .simplifiedChinese))
+
+        \(outputFormat(language: .simplifiedChinese))
         """
     }
 
@@ -67,6 +69,8 @@ public struct SkillTriggerConflictPromptExporter: Sendable {
 
         Suggested direction:
         \(suggestion(for: conflict, language: .english))
+
+        \(outputFormat(language: .english))
         """
     }
 
@@ -118,5 +122,60 @@ public struct SkillTriggerConflictPromptExporter: Sendable {
             return L10n.text(.triggerConflictSuggestionNarrow, language: language)
         }
         return L10n.text(.triggerConflictSuggestionGeneral, language: language)
+    }
+
+    private func outputFormat(language: AppLanguage) -> String {
+        switch language {
+        case .simplifiedChinese:
+            """
+            处理结果输出格式：
+            请严格按以下 Markdown 结构输出；如果某一项不适用，也要写“无”或说明未执行原因。
+
+            ## 结论
+            - 是否确认为真实触发冲突：
+            - 最终处理策略：
+
+            ## 文件处理明细
+            - `path/to/file`：改动/未改动/需要人工确认；说明具体处理内容。
+            - 如未改文件，说明原因。
+
+            ## 验证
+            - 已运行的命令或检查：
+            - 结果：
+            - 未运行验证时的原因：
+
+            ## 剩余人工决策
+            - 需要用户决定的事项；没有则写“无”。
+
+            ## 风险与回滚
+            - 可能的误触发/漏触发风险：
+            - 如需回滚，应恢复哪些文件或改动：
+            """
+        case .english:
+            """
+            Required output format:
+            Use the following Markdown structure exactly. If a section does not apply, write "None" or explain why it was not performed.
+
+            ## Conclusion
+            - Confirmed as a real trigger conflict:
+            - Final handling strategy:
+
+            ## File Handling Details
+            - `path/to/file`: changed / unchanged / needs human confirmation; explain the concrete handling.
+            - If no files changed, explain why.
+
+            ## Verification
+            - Commands or checks run:
+            - Result:
+            - If verification was not run, explain why:
+
+            ## Remaining Human Decisions
+            - Decisions the user still needs to make; write "None" if there are none.
+
+            ## Risks and Rollback
+            - Possible mis-trigger or missed-trigger risk:
+            - Files or edits to restore if rollback is needed:
+            """
+        }
     }
 }

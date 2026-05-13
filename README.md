@@ -47,7 +47,9 @@ losing them.
 
 - **Skill trigger radar**  
   Detect user, project, bundled, and plugin skills that compete for the same
-  intent before the wrong capability answers first.
+  intent before the wrong capability answers first. Copied handling prompts
+  include a required Markdown result format for conclusions, file decisions,
+  verification, remaining human choices, and rollback notes.
 
 - **Dashboard for risk and drift**  
   See stale paths, duplicate identities, unreadable files, large files, missing
