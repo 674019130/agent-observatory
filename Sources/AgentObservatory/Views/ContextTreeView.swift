@@ -17,6 +17,12 @@ struct ContextTreeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 ContextTreeHeader(nodes: nodes)
+                OfficialDocTipsPanel(
+                    tips: OfficialDocTips.tips(
+                        for: .contextOverview,
+                        language: store.appLanguage
+                    )
+                )
                 ContextTreeToolbar()
 
                 if nodes.isEmpty {

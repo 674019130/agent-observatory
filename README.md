@@ -44,6 +44,8 @@ losing them.
 - **Context browser for Claude Code and Codex**  
   See memories, capabilities, and assembly steps side by side so it is clear
   which files become prompt material, registries, support files, or history.
+  Small official-doc tips link back to the relevant OpenAI and Claude Code
+  documentation sections.
 
 - **Skill trigger radar**  
   Detect user, project, bundled, and plugin skills that compete for the same

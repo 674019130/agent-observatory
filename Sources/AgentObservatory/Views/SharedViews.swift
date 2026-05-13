@@ -71,6 +71,87 @@ struct EmptyStateView: View {
     }
 }
 
+struct OfficialDocTipsPanel: View {
+    @EnvironmentObject private var store: AssetStore
+    let tips: [OfficialDocTip]
+
+    var body: some View {
+        if !tips.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Label(panelTitle, systemImage: "lightbulb")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.blue)
+
+                VStack(alignment: .leading, spacing: 9) {
+                    ForEach(tips) { tip in
+                        OfficialDocTipRow(tip: tip)
+                    }
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(.blue.opacity(0.22))
+            }
+        }
+    }
+
+    private var panelTitle: String {
+        switch store.appLanguage {
+        case .english:
+            "Official docs tips"
+        case .simplifiedChinese:
+            "官方文档 Tips"
+        }
+    }
+}
+
+private struct OfficialDocTipRow: View {
+    @EnvironmentObject private var store: AssetStore
+    let tip: OfficialDocTip
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(tip.title)
+                .font(.callout.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(tip.body)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("\(locationLabel) \(tip.sourceLocation)")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(2)
+
+                Spacer(minLength: 8)
+
+                if let url = URL(string: tip.sourceURL) {
+                    Link(destination: url) {
+                        Label(tip.sourceTitle, systemImage: "arrow.up.forward.square")
+                            .labelStyle(.titleAndIcon)
+                    }
+                    .font(.caption2.weight(.medium))
+                }
+            }
+        }
+    }
+
+    private var locationLabel: String {
+        switch store.appLanguage {
+        case .english:
+            "Location:"
+        case .simplifiedChinese:
+            "位置："
+        }
+    }
+}
+
 struct InspectorPanel<Content: View>: View {
     let title: String
     let systemImage: String

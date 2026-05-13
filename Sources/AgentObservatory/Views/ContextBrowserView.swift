@@ -71,6 +71,13 @@ struct ContextAssemblyView: View {
                     tint: .blue
                 )
 
+                OfficialDocTipsPanel(
+                    tips: OfficialDocTips.tips(
+                        for: .assembly,
+                        language: store.appLanguage
+                    )
+                )
+
                 HStack(alignment: .top, spacing: 14) {
                     AssemblyPipeline(surface: .claude, catalog: catalog)
                     AssemblyPipeline(surface: .codex, catalog: catalog)
@@ -382,6 +389,13 @@ private struct ContextItemCollectionView: View {
                 )
 
                 if showsSkillVisibilityControl {
+                    OfficialDocTipsPanel(
+                        tips: OfficialDocTips.tips(
+                            for: .capabilities,
+                            language: store.appLanguage
+                        )
+                    )
+
                     SkillVisibilityControl()
                 }
 
@@ -447,6 +461,13 @@ private struct MemoryTypeCollectionView: View {
                     subtitle: subtitle,
                     systemImage: systemImage,
                     tint: tint
+                )
+
+                OfficialDocTipsPanel(
+                    tips: OfficialDocTips.tips(
+                        for: .memories,
+                        language: store.appLanguage
+                    )
                 )
 
                 MemoryTypeNavigator(

@@ -255,6 +255,14 @@ private struct LoadRoutePanel: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
 
+                OfficialDocTipsPanel(
+                    tips: OfficialDocTips.tips(
+                        for: asset,
+                        route: route,
+                        language: store.appLanguage
+                    )
+                )
+
                 LazyVGrid(
                     columns: [
                         GridItem(.fixed(112), alignment: .leading),

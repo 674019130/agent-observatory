@@ -16,6 +16,12 @@ struct SkillTriggerRadarView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 header
+                OfficialDocTipsPanel(
+                    tips: OfficialDocTips.tips(
+                        for: .triggerRadar,
+                        language: store.appLanguage
+                    )
+                )
                 metrics
 
                 if store.skillTriggerConflicts.isEmpty {
