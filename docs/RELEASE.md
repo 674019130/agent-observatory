@@ -2,7 +2,8 @@
 
 Agent Observatory can be shipped as a zipped macOS app bundle. The current
 release script produces an ad-hoc signed build for quick sharing and local
-testing. Public distribution should add Developer ID signing and notarization.
+testing. Developer ID signing and notarization are optional future work if the
+project later needs polished public macOS distribution.
 
 ## Current Release
 
@@ -11,6 +12,8 @@ testing. Public distribution should add Developer ID signing and notarization.
 - Artifact: `dist/AgentObservatory-v0.2.0-macOS.zip`
 - SHA-256: `982a1541bb9c59dd33affa8daffbb23b8812faa160e7d88d37a861157eaca632`
 - Signing: ad-hoc signed, not Developer ID signed or notarized.
+- Install expectation: downloaded builds may require right-click Open or
+  approval in macOS Privacy & Security.
 
 ## Build a Release Zip
 
@@ -81,21 +84,23 @@ git push origin v0.2.0
 
 6. Include the checksum and verification commands in the release notes.
 
-7. For public users, replace ad-hoc signing with Developer ID signing and
-   notarization before announcing the build broadly.
+7. State the current signing model in the release notes. If the build is still
+   ad-hoc signed, mention that macOS may require right-click Open or Privacy &
+   Security approval after download.
 
 If `gh release create` fails with a token-scope error, create the release in the
 GitHub web UI or retry with a token that can write repository releases.
 
-## Developer ID and Notarization
+## Optional Developer ID and Notarization
 
-Ad-hoc signing is enough for local verification, but not enough for a polished
-public download. The production path should:
+Ad-hoc signing is enough for local verification and small-scope sharing. A
+polished public download would require:
 
 - sign the app with a Developer ID Application certificate
 - enable hardened runtime when moving to an Xcode project or a richer bundle
 - submit the zip or app for notarization with `notarytool`
 - staple the notarization ticket before uploading
 
-Until that is wired in, users may need to right-click Open or allow the app from
-macOS Privacy & Security after downloading.
+This path requires an Apple Developer Program account. Until that is worth doing,
+users may need to right-click Open or allow the app from macOS Privacy & Security
+after downloading.

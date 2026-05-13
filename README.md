@@ -197,7 +197,7 @@ dist/AgentObservatory.app
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the working roadmap. The next
 sequence is:
 
-- Harden distribution with Developer ID signing, hardened runtime, and notarization.
+- Keep ad-hoc release packaging and document the macOS security prompt tradeoff.
 - Add regression coverage for the context browser, path preview, Finder opening,
   and OpenAI explanation selection flow.
 - Build dependency graph visualization for memory, capability, MCP, and project

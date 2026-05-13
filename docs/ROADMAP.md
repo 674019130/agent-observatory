@@ -5,9 +5,9 @@ Last updated: 2026-05-14
 Current release: `v0.2.0`
 
 Agent Observatory is now useful as a local command center for understanding
-Claude Code and Codex context files. The next route is to make the app more
-trustworthy to distribute, harder to regress, and better at showing why one
-agent file affects another.
+Claude Code and Codex context files. The next route is to keep releases practical
+without an Apple Developer Program account, make key flows harder to regress, and
+show why one agent file affects another.
 
 ## Product Direction
 
@@ -21,22 +21,23 @@ Keep the product local-first and inspection-first:
 - Make the right pane a reliable detail surface for every middle-column
   selection.
 
-## v0.2.x: Release Hardening
+## v0.2.x: Practical Release Maintenance
 
-Goal: make the current app easier to trust and share.
+Goal: keep the current ad-hoc release flow honest and repeatable without making
+Developer ID signing a blocker.
 
-- Add Developer ID signing, hardened runtime, notarization, and stapling.
-- Keep ad-hoc release packaging for local testing, but separate it clearly from
-  public distribution.
+- Keep ad-hoc release packaging as the supported sharing path for now.
+- Document that downloaded builds may require right-click Open or approval in
+  macOS Privacy & Security.
 - Add a manual smoke checklist for Settings -> Sources, context browser
   selection, path preview popovers, Finder opening, and OpenAI explanation.
 - Add focused regression coverage around the context selection and inspector
   state paths that caused the post-`v0.2.0` selection bug.
-- Document install expectations for unsigned, ad-hoc signed, and notarized
-  builds.
+- Keep Developer ID signing, hardened runtime, notarization, and stapling as an
+  optional future path, not the next milestone.
 
-Done when a downloaded release can be opened without confusing macOS security
-prompts on a normal machine.
+Done when a release can be built, checked, uploaded, and explained without
+surprising the user about macOS security prompts.
 
 ## v0.3.0: Relationship Map
 
@@ -79,7 +80,9 @@ performance boundaries.
 
 ## Later
 
-- Better release automation after Developer ID signing is in place.
+- Developer ID signing and notarization if an Apple Developer Program account
+  becomes worth the cost later.
+- Better release automation once the final distribution path is clear.
 - Optional update checking.
 - More official-doc tips as upstream Codex and Claude Code documentation changes.
 - Richer AI audit filtering and export.
