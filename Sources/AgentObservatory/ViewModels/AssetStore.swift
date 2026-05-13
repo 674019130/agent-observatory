@@ -209,19 +209,20 @@ final class AssetStore: ObservableObject {
     }
 
     var selectedAsset: AgentAsset? {
-        guard let selectedAssetID else { return filteredAssets.first }
-        // Context pages keep independent filters, so their selections may not be in
-        // the asset table's filtered rows.
-        let selectionPool = usesContextSelection ? visibleAssets : filteredAssets
-        return selectionPool.first { $0.id == selectedAssetID } ?? filteredAssets.first
+        AssetSelectionResolver().selectedAsset(
+            selectedAssetID: selectedAssetID,
+            visibleAssets: visibleAssets,
+            filteredAssets: filteredAssets,
+            surface: selectionSurface
+        )
     }
 
-    private var usesContextSelection: Bool {
+    private var selectionSurface: AssetSelectionSurface {
         switch selectedSection {
         case .contextOverview, .memories, .capabilities, .assembly:
-            return true
+            return .contextBrowser
         default:
-            return false
+            return .assetTable
         }
     }
 

@@ -43,6 +43,10 @@ The verify command stops any existing `AgentObservatory` process, rebuilds the
 SwiftPM app bundle under `dist/AgentObservatory.app`, launches it, and checks
 that the process is running.
 
+Use [SMOKE_CHECKLIST.md](SMOKE_CHECKLIST.md) for the manual release checks that
+cover Settings -> Sources, context browser selection, path previews, Finder
+opening, OpenAI explanation, and release artifact metadata.
+
 For changes that affect source discovery, confirm Settings -> Sources still
 shows the expected Project Folder and source list. The Project Folder controls
 project-scoped `AGENTS.md`, `CLAUDE.md`, `.mcp.json`, `.codex`, and `.claude`

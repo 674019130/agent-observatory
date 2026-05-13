@@ -29,9 +29,9 @@ Developer ID signing a blocker.
 - Keep ad-hoc release packaging as the supported sharing path for now.
 - Document that downloaded builds may require right-click Open or approval in
   macOS Privacy & Security.
-- Add a manual smoke checklist for Settings -> Sources, context browser
+- Maintain the manual smoke checklist for Settings -> Sources, context browser
   selection, path preview popovers, Finder opening, and OpenAI explanation.
-- Add focused regression coverage around the context selection and inspector
+- Keep focused regression coverage around the context selection and inspector
   state paths that caused the post-`v0.2.0` selection bug.
 - Keep Developer ID signing, hardened runtime, notarization, and stapling as an
   optional future path, not the next milestone.
