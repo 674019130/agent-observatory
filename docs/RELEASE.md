@@ -4,18 +4,26 @@ Agent Observatory can be shipped as a zipped macOS app bundle. The current
 release script produces an ad-hoc signed build for quick sharing and local
 testing. Public distribution should add Developer ID signing and notarization.
 
+## Current Release
+
+- Version: `v0.2.0`
+- GitHub Release: <https://github.com/674019130/agent-observatory/releases/tag/v0.2.0>
+- Artifact: `dist/AgentObservatory-v0.2.0-macOS.zip`
+- SHA-256: `982a1541bb9c59dd33affa8daffbb23b8812faa160e7d88d37a861157eaca632`
+- Signing: ad-hoc signed, not Developer ID signed or notarized.
+
 ## Build a Release Zip
 
 ```bash
-./script/package_release.sh v0.1.0
+./script/package_release.sh v0.2.0
 ```
 
 The script runs `swift test`, builds with `swift build -c release`, assembles
 `dist/release/AgentObservatory.app`, ad-hoc signs it, then writes:
 
 ```text
-dist/AgentObservatory-v0.1.0-macOS.zip
-dist/AgentObservatory-v0.1.0-macOS.zip.sha256
+dist/AgentObservatory-v0.2.0-macOS.zip
+dist/AgentObservatory-v0.2.0-macOS.zip.sha256
 ```
 
 ## Local Verification
@@ -40,25 +48,44 @@ relevant filesystem events.
 
 ## GitHub Release Checklist
 
-1. Create and push a version tag.
+1. Confirm the tree is clean and synchronized.
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git status --short --branch
+git fetch --tags origin
 ```
 
-2. Run the release script.
+2. Run the release script with the target version.
 
 ```bash
-./script/package_release.sh v0.1.0
+./script/package_release.sh v0.2.0
 ```
 
-3. Draft a GitHub Release with the zip and `.sha256` file attached.
+3. Verify the bundle version, checksum, and code signature.
 
-4. Include the checksum in the release notes.
+```bash
+/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+  dist/release/AgentObservatory.app/Contents/Info.plist
+cat dist/AgentObservatory-v0.2.0-macOS.zip.sha256
+codesign --verify --deep --strict --verbose=2 dist/release/AgentObservatory.app
+```
 
-5. For public users, replace ad-hoc signing with Developer ID signing and
+4. Create and push an annotated version tag.
+
+```bash
+git tag -a v0.2.0 -m "Agent Observatory v0.2.0"
+git push origin v0.2.0
+```
+
+5. Draft a GitHub Release with the zip and `.sha256` file attached.
+
+6. Include the checksum and verification commands in the release notes.
+
+7. For public users, replace ad-hoc signing with Developer ID signing and
    notarization before announcing the build broadly.
+
+If `gh release create` fails with a token-scope error, create the release in the
+GitHub web UI or retry with a token that can write repository releases.
 
 ## Developer ID and Notarization
 

@@ -113,8 +113,11 @@ uses it for project-level `AGENTS.md`, `CLAUDE.md`, `.mcp.json`, `.codex`, and
 Package a local release zip:
 
 ```bash
-./script/package_release.sh v0.1.0
+./script/package_release.sh v0.2.0
 ```
+
+The latest packaged release is
+[Agent Observatory v0.2.0](https://github.com/674019130/agent-observatory/releases/tag/v0.2.0).
 
 ## What It Finds
 
@@ -180,7 +183,7 @@ swift build
 swift test
 ./script/build_and_run.sh
 ./script/build_and_run.sh --verify
-./script/package_release.sh v0.1.0
+./script/package_release.sh v0.2.0
 ```
 
 The app bundle is created at:
@@ -191,10 +194,18 @@ dist/AgentObservatory.app
 
 ## Roadmap
 
-- Dependency graph visualization
-- Source presets for additional agent runtimes
-- Import/export for management state
-- Developer ID signing and notarization
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the working roadmap. The next
+sequence is:
+
+- Harden distribution with Developer ID signing, hardened runtime, and notarization.
+- Add regression coverage for the context browser, path preview, Finder opening,
+  and OpenAI explanation selection flow.
+- Build dependency graph visualization for memory, capability, MCP, and project
+  instruction relationships.
+- Add import/export for management state so hide/archive decisions can be backed
+  up or moved between machines.
+- Add source presets for more agent runtimes after the Claude Code and Codex
+  model stays stable.
 
 ## License
 
