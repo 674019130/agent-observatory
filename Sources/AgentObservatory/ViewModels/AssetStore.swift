@@ -210,7 +210,19 @@ final class AssetStore: ObservableObject {
 
     var selectedAsset: AgentAsset? {
         guard let selectedAssetID else { return filteredAssets.first }
-        return filteredAssets.first { $0.id == selectedAssetID } ?? filteredAssets.first
+        // Context pages keep independent filters, so their selections may not be in
+        // the asset table's filtered rows.
+        let selectionPool = usesContextSelection ? visibleAssets : filteredAssets
+        return selectionPool.first { $0.id == selectedAssetID } ?? filteredAssets.first
+    }
+
+    private var usesContextSelection: Bool {
+        switch selectedSection {
+        case .contextOverview, .memories, .capabilities, .assembly:
+            return true
+        default:
+            return false
+        }
     }
 
     var activeScanSources: [ScanSource] {
@@ -1255,6 +1267,8 @@ final class AssetStore: ObservableObject {
               let asset = visibleAssets.first(where: { $0.path == path }) else {
             return
         }
+        selectedContextTreeNodeID = nil
+        selectedSkillTriggerConflictID = nil
         selectedAssetID = asset.id
     }
 
