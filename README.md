@@ -132,11 +132,11 @@ uses it for project-level `AGENTS.md`, `CLAUDE.md`, `.mcp.json`, `.codex`, and
 Package a local release zip:
 
 ```bash
-./script/package_release.sh v0.2.0
+./script/package_release.sh v0.2.1
 ```
 
 The latest packaged release is
-[Agent Observatory v0.2.0](https://github.com/674019130/agent-observatory/releases/tag/v0.2.0).
+[Agent Observatory v0.2.1](https://github.com/674019130/agent-observatory/releases/tag/v0.2.1).
 
 ## What It Finds
 
@@ -202,7 +202,7 @@ swift build
 swift test
 ./script/build_and_run.sh
 ./script/build_and_run.sh --verify
-./script/package_release.sh v0.2.0
+./script/package_release.sh v0.2.1
 ```
 
 The app bundle is created at:

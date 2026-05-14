@@ -27,7 +27,7 @@
   ·
   <a href="docs/ROADMAP.md">路线图</a>
   ·
-  <a href="https://github.com/674019130/agent-observatory/releases/tag/v0.2.0">v0.2.0 Release</a>
+  <a href="https://github.com/674019130/agent-observatory/releases/tag/v0.2.1">v0.2.1 Release</a>
 </p>
 
 ---
@@ -119,11 +119,11 @@ Folder。应用会把该目录保存到本地偏好设置，并用它解析项�
 打包本地 release zip：
 
 ```bash
-./script/package_release.sh v0.2.0
+./script/package_release.sh v0.2.1
 ```
 
 最新打包版本是
-[Agent Observatory v0.2.0](https://github.com/674019130/agent-observatory/releases/tag/v0.2.0)。
+[Agent Observatory v0.2.1](https://github.com/674019130/agent-observatory/releases/tag/v0.2.1)。
 
 ## 会找到什么
 
@@ -185,7 +185,7 @@ swift build
 swift test
 ./script/build_and_run.sh
 ./script/build_and_run.sh --verify
-./script/package_release.sh v0.2.0
+./script/package_release.sh v0.2.1
 ```
 
 应用 bundle 会生成在：

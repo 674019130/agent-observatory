@@ -2,7 +2,7 @@
 
 Last updated: 2026-05-14
 
-Current release: `v0.2.0`
+Current release: `v0.2.1`
 
 Agent Observatory is now useful as a local command center for understanding
 Claude Code and Codex context files. The next route is to keep releases practical

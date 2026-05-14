@@ -7,10 +7,10 @@ project later needs polished public macOS distribution.
 
 ## Current Release
 
-- Version: `v0.2.0`
-- GitHub Release: <https://github.com/674019130/agent-observatory/releases/tag/v0.2.0>
-- Artifact: `dist/AgentObservatory-v0.2.0-macOS.zip`
-- SHA-256: `982a1541bb9c59dd33affa8daffbb23b8812faa160e7d88d37a861157eaca632`
+- Version: `v0.2.1`
+- GitHub Release: <https://github.com/674019130/agent-observatory/releases/tag/v0.2.1>
+- Artifact: `dist/AgentObservatory-v0.2.1-macOS.zip`
+- SHA-256: `4bb1ebb56f3b41a1c8701c460c171b70ba19c5209f58ff154a462e0cf0dc2551`
 - Signing: ad-hoc signed, not Developer ID signed or notarized.
 - Install expectation: downloaded builds may require right-click Open or
   approval in macOS Privacy & Security.
@@ -18,15 +18,15 @@ project later needs polished public macOS distribution.
 ## Build a Release Zip
 
 ```bash
-./script/package_release.sh v0.2.0
+./script/package_release.sh v0.2.1
 ```
 
 The script runs `swift test`, builds with `swift build -c release`, assembles
 `dist/release/AgentObservatory.app`, ad-hoc signs it, then writes:
 
 ```text
-dist/AgentObservatory-v0.2.0-macOS.zip
-dist/AgentObservatory-v0.2.0-macOS.zip.sha256
+dist/AgentObservatory-v0.2.1-macOS.zip
+dist/AgentObservatory-v0.2.1-macOS.zip.sha256
 ```
 
 ## Local Verification
@@ -65,7 +65,7 @@ git fetch --tags origin
 2. Run the release script with the target version.
 
 ```bash
-./script/package_release.sh v0.2.0
+./script/package_release.sh v0.2.1
 ```
 
 3. Verify the bundle version, checksum, and code signature.
@@ -73,15 +73,15 @@ git fetch --tags origin
 ```bash
 /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
   dist/release/AgentObservatory.app/Contents/Info.plist
-cat dist/AgentObservatory-v0.2.0-macOS.zip.sha256
+cat dist/AgentObservatory-v0.2.1-macOS.zip.sha256
 codesign --verify --deep --strict --verbose=2 dist/release/AgentObservatory.app
 ```
 
 4. Create and push an annotated version tag.
 
 ```bash
-git tag -a v0.2.0 -m "Agent Observatory v0.2.0"
-git push origin v0.2.0
+git tag -a v0.2.1 -m "Agent Observatory v0.2.1"
+git push origin v0.2.1
 ```
 
 5. Draft a GitHub Release with the zip and `.sha256` file attached.
