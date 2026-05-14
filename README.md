@@ -11,11 +11,21 @@
 <p align="center">
   <a href="#features">Features</a>
   ·
+  <a href="#screenshots">Screenshots</a>
+  ·
   <a href="#quick-start">Quick Start</a>
   ·
   <a href="#privacy-first">Privacy</a>
   ·
   <a href="#architecture">Architecture</a>
+</p>
+
+<p align="center">
+  English
+  ·
+  <a href="README.zh-CN.md">简体中文</a>
+  ·
+  <a href="README.zh-TW.md">繁體中文</a>
 </p>
 
 ---
@@ -29,6 +39,15 @@ track of which tool has which memory, skill, command, or stale path. The app
 scans a focused set of local directories, classifies the files it finds, explains
 what they do, highlights drift, and lets you hide or archive files without
 losing them.
+
+## Screenshots
+
+These sample images use sanitized demo data and paths so the public README does
+not expose anyone's local machine.
+
+| Context observatory | Trigger radar | AI organizer |
+|---|---|---|
+| [![Context observatory sample](docs/assets/sample-overview.png)](docs/assets/sample-overview.png) | [![Trigger radar sample](docs/assets/sample-trigger-radar.png)](docs/assets/sample-trigger-radar.png) | [![AI organizer sample](docs/assets/sample-ai-organizer.png)](docs/assets/sample-ai-organizer.png) |
 
 ## Features
 
