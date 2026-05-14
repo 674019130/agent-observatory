@@ -58,8 +58,10 @@ struct PathPreviewLink: View {
     var foregroundColor: Color = .secondary
     var lineLimit: Int = 1
     var language: AppLanguage = .english
+    var revealAction: (String) -> Void = FinderPathOpener.reveal
 
     @State private var isShowingPreview = false
+    @State private var hidePreviewTask: Task<Void, Never>?
 
     private var visiblePath: String {
         displayPath ?? path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
@@ -67,7 +69,7 @@ struct PathPreviewLink: View {
 
     var body: some View {
         Button {
-            FinderPathOpener.reveal(path: path)
+            revealPath()
         } label: {
             HStack(spacing: 4) {
                 Text(visiblePath)
@@ -86,38 +88,78 @@ struct PathPreviewLink: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering in
-            isShowingPreview = hovering
+            hovering ? showPreview() : schedulePreviewHide()
         }
         .popover(isPresented: $isShowingPreview, arrowEdge: .bottom) {
-            PathPreviewPopover(path: path, language: language)
+            PathPreviewPopover(
+                path: path,
+                language: language,
+                onReveal: revealPath,
+                onHoverChange: { hovering in
+                    hovering ? showPreview() : schedulePreviewHide()
+                }
+            )
         }
         .help(path)
+    }
+
+    private func revealPath() {
+        hidePreviewTask?.cancel()
+        isShowingPreview = false
+        revealAction(path)
+    }
+
+    private func showPreview() {
+        hidePreviewTask?.cancel()
+        isShowingPreview = true
+    }
+
+    private func schedulePreviewHide() {
+        hidePreviewTask?.cancel()
+        hidePreviewTask = Task {
+            do {
+                try await Task.sleep(nanoseconds: 250_000_000)
+            } catch {
+                return
+            }
+            await MainActor.run {
+                isShowingPreview = false
+            }
+        }
     }
 }
 
 private struct PathPreviewPopover: View {
     let path: String
     let language: AppLanguage
+    let onReveal: () -> Void
+    let onHoverChange: (Bool) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(title, systemImage: "folder")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+        Button(action: onReveal) {
+            VStack(alignment: .leading, spacing: 10) {
+                Label(title, systemImage: "folder")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
 
-            Text(path)
-                .font(.caption.monospaced())
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
+                Text(path)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-            Divider()
+                Divider()
 
-            Label(actionHint, systemImage: "arrow.up.forward.app")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+                Label(actionHint, systemImage: "arrow.up.forward.app")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(12)
+            .frame(minWidth: 320, idealWidth: 420, maxWidth: 520, alignment: .leading)
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
-        .padding(12)
-        .frame(minWidth: 320, idealWidth: 420, maxWidth: 520, alignment: .leading)
+        .buttonStyle(.plain)
+        .onHover(perform: onHoverChange)
+        .help(actionHint)
     }
 
     private var title: String {
@@ -141,12 +183,8 @@ private struct PathPreviewPopover: View {
 
 private enum FinderPathOpener {
     static func reveal(path: String) {
-        let url = URL(fileURLWithPath: path)
-        if FileManager.default.fileExists(atPath: path) {
-            NSWorkspace.shared.activateFileViewerSelecting([url])
-        } else {
-            NSWorkspace.shared.activateFileViewerSelecting([url.deletingLastPathComponent()])
-        }
+        let url = FinderRevealTarget.selectingURL(for: path)
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 }
 
