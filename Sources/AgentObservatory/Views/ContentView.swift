@@ -1,4 +1,3 @@
-import AgentObservatoryCore
 import AppKit
 import SwiftUI
 
@@ -90,78 +89,57 @@ struct ContentView: View {
                 .help(store.t(.toggleSidebar))
             }
 
-            ToolbarItemGroup {
-                if store.isScanning {
-                    Button {
-                    store.cancelScan()
-                } label: {
-                    Label(store.t(.cancel), systemImage: "xmark.circle")
-                }
-                .help(store.t(.cancel))
-            } else {
-                Button {
-                    store.scan()
-                } label: {
-                    Label(store.t(.refresh), systemImage: "arrow.clockwise")
-                }
-                .help(store.t(.refresh))
-            }
-
-            Button {
-                store.enrichSelectedAsset()
-            } label: {
-                Label(store.t(.explain), systemImage: "sparkles")
-            }
-            .disabled(
-                store.selectedSection == .archive
-                    || store.selectedSection == .triggerRadar
-                    || store.selectedSection == .hidden
-                    || store.selectedSection == .organizer
-                    || !canExplainSelectedAsset
-            )
-            .help(store.t(.explainWithOpenAI))
-
-            if store.isIndexStale {
-                Label(store.t(.stale), systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(.orange)
-                    .help(store.t(.sourceFilesChangedAfterScan))
-            }
+            ToolbarItem(placement: .primaryAction) {
+                scanToolbarButton
             }
 
             ToolbarItem(placement: .principal) {
-                HStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(.secondary)
-                    TextField(store.t(.searchPlaceholder), text: $store.searchText)
-                        .textFieldStyle(.plain)
-                        .frame(width: 330)
-                    if !store.searchText.isEmpty {
-                        Button {
-                            store.searchText = ""
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .compactHitTarget()
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                        .help(store.t(.clearSearch))
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                searchField
             }
         }
     }
 
-    private var canExplainSelectedAsset: Bool {
-        guard store.selectedContextTreeGroup == nil else {
-            return false
+    @ViewBuilder
+    private var scanToolbarButton: some View {
+        if store.isScanning {
+            Button {
+                store.cancelScan()
+            } label: {
+                Label(store.t(.cancel), systemImage: "xmark.circle")
+            }
+            .help(store.t(.cancel))
+        } else {
+            Button {
+                store.scan()
+            } label: {
+                Label(store.t(.refresh), systemImage: "arrow.clockwise")
+            }
+            .help(store.isIndexStale ? store.t(.refreshStaleIndex) : store.t(.refresh))
         }
-        guard store.enrichingAssetID == nil, let asset = store.selectedAsset else {
-            return false
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField(store.t(.searchPlaceholder), text: $store.searchText)
+                .textFieldStyle(.plain)
+                .frame(width: 330)
+            if !store.searchText.isEmpty {
+                Button {
+                    store.searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .compactHitTarget()
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help(store.t(.clearSearch))
+            }
         }
-        return OpenAIPayloadGuard.isSafeForAI(asset)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private var shouldShowContextPlaceholder: Bool {
