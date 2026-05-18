@@ -15,6 +15,8 @@
   ·
   <a href="#quick-start">Quick Start</a>
   ·
+  <a href="docs/LLM_AGENT_INSTALL.md">LLM Agent Install</a>
+  ·
   <a href="#privacy-first">Privacy</a>
   ·
   <a href="#architecture">Architecture</a>
@@ -112,6 +114,10 @@ not expose anyone's local machine.
 
 ## Quick Start
 
+Helping someone install this with an LLM agent? Use the
+[LLM Agent Install And Launch Guide](docs/LLM_AGENT_INSTALL.md) for a
+step-by-step, agent-friendly flow.
+
 Requirements:
 
 - macOS 14 or newer
@@ -146,11 +152,11 @@ uses it for project-level `AGENTS.md`, `CLAUDE.md`, `.mcp.json`, `.codex`, and
 Package a local release zip:
 
 ```bash
-./script/package_release.sh v0.2.1
+./script/package_release.sh v0.2.2
 ```
 
 The latest packaged release is
-[Agent Observatory v0.2.1](https://github.com/674019130/agent-observatory/releases/tag/v0.2.1).
+[Agent Observatory v0.2.2](https://github.com/674019130/agent-observatory/releases/tag/v0.2.2).
 
 ## What It Finds
 
@@ -216,7 +222,7 @@ swift build
 swift test
 ./script/build_and_run.sh
 ./script/build_and_run.sh --verify
-./script/package_release.sh v0.2.1
+./script/package_release.sh v0.2.2
 ```
 
 The app bundle is created at:

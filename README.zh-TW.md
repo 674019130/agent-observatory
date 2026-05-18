@@ -27,7 +27,7 @@
   ·
   <a href="docs/ROADMAP.md">路線圖</a>
   ·
-  <a href="https://github.com/674019130/agent-observatory/releases/tag/v0.2.1">v0.2.1 Release</a>
+  <a href="https://github.com/674019130/agent-observatory/releases/tag/v0.2.2">v0.2.2 Release</a>
 </p>
 
 ---
@@ -130,11 +130,11 @@ Project Folder。應用程式會把該目錄儲存到本機偏好設定，並用
 打包本機 release zip：
 
 ```bash
-./script/package_release.sh v0.2.1
+./script/package_release.sh v0.2.2
 ```
 
 最新打包版本是
-[Agent Observatory v0.2.1](https://github.com/674019130/agent-observatory/releases/tag/v0.2.1)。
+[Agent Observatory v0.2.2](https://github.com/674019130/agent-observatory/releases/tag/v0.2.2)。
 
 ## 會找到什麼
 
@@ -196,7 +196,7 @@ swift build
 swift test
 ./script/build_and_run.sh
 ./script/build_and_run.sh --verify
-./script/package_release.sh v0.2.1
+./script/package_release.sh v0.2.2
 ```
 
 應用程式 bundle 會產生在：
