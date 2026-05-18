@@ -203,6 +203,7 @@ private func contextTreeAccentColor(_ accent: ContextTreeAccent) -> Color {
     case .project: .teal
     case .memory: .indigo
     case .capability: .teal
+    case .mcp: .orange
     case .neutral: .secondary
     }
 }

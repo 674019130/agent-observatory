@@ -29,6 +29,7 @@ public enum OfficialDocTipPlacement: Sendable {
     case contextOverview
     case memories
     case capabilities
+    case mcpTools
     case assembly
     case triggerRadar
 }
@@ -41,7 +42,9 @@ public enum OfficialDocTips {
         case .memories:
             [codexMemories(language: language), claudeMemory(language: language)]
         case .capabilities:
-            [codexSkills(language: language), claudeSkills(language: language), codexMCP(language: language)]
+            [codexSkills(language: language), claudeSkills(language: language)]
+        case .mcpTools:
+            [codexMCP(language: language), claudeMCP(language: language)]
         case .assembly:
             [codexAgents(language: language), claudeMemory(language: language), codexMemories(language: language)]
         case .triggerRadar:

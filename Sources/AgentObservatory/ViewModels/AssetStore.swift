@@ -29,6 +29,7 @@ final class AssetStore: ObservableObject {
     @Published private(set) var isPreparingOrganizerRun = false
     @Published private(set) var isOrganizing = false
     @Published private(set) var organizerStatus: String?
+    @Published private(set) var memoryMigrationStatus: String?
     @Published private(set) var cleanupExecutionPreview: CleanupExecutionPreview?
     @Published var organizationDetailSelection = OrganizationDetailSelection()
     @Published var cleanupReviewGoal: CleanupReviewGoal = .fullReview
@@ -37,7 +38,8 @@ final class AssetStore: ObservableObject {
     @Published var organizerError: String?
     @Published var approvedOrganizationRecommendationIDs: Set<String> = []
     @Published var approvedCleanupGroupIDs: Set<String> = []
-    @Published var selectedSection: WorkspaceSection = .triggerRadar
+    @Published var selectedSection: WorkspaceSection = .contextOverview
+    @Published private(set) var canGoBack = false
     @Published private(set) var projectRootPath: String?
     @Published var scanSources: [ScanSource]
     @Published var selectedOwner: AgentOwner?
@@ -48,11 +50,16 @@ final class AssetStore: ObservableObject {
     @Published var selectedSkillTriggerConflictID: SkillTriggerConflict.ID?
     @Published var includeBundledSkills = false {
         didSet {
-            guard selectedSection == .assets else { return }
+            guard selectedSection == .assets || selectedSection == .capabilities else { return }
+            if selectedSection == .capabilities {
+                selectedAssetID = visibleNonMCPCapabilityItems.first?.asset.id
+                return
+            }
             selectedAssetID = filteredAssets.first?.id
         }
     }
     @Published var searchText = ""
+    @Published var interfaceZoomLevel = InterfaceZoomLevel.stored(rawValue: UserDefaults.standard.object(forKey: "interfaceZoomLevel.v1") as? Int)
     @Published var aiSummaries: [String: String]
     @Published var aiErrors: [String: String] = [:]
     @Published var enrichingAssetID: AgentAsset.ID?
@@ -68,10 +75,12 @@ final class AssetStore: ObservableObject {
     private static let managementStateDefaultsKey = "assetManagementState.v1"
     private static let aiAuditLogDefaultsKey = "aiAuditLog.v1"
     private static let appLanguageDefaultsKey = "appLanguage"
+    private static let interfaceZoomLevelDefaultsKey = "interfaceZoomLevel.v1"
     private static let openAIBaseURLDefaultsKey = "openAIBaseURL"
 
     private let scanner: FileSystemAssetScanner
     private let archiveService: AssetArchiveService
+    private let memoryMigrationPlanner = MemoryMigrationPlanner()
     private let enricher = OpenAIEnricher()
     private let organizer = OpenAIOrganizer()
     private let summaryCache: SummaryCache
@@ -81,6 +90,7 @@ final class AssetStore: ObservableObject {
     private var cancellationToken: ScanCancellationToken?
     private var enrichmentTask: Task<Void, Never>?
     private var organizerTask: Task<Void, Never>?
+    private var navigationBackStack: [WorkspaceNavigationState] = []
     private var pendingOrganizationMapAfterScan = false
     private var pendingCleanupReviewAfterScan = false
     private var pendingOrganizerRunAfterScan = false
@@ -219,7 +229,7 @@ final class AssetStore: ObservableObject {
 
     private var selectionSurface: AssetSelectionSurface {
         switch selectedSection {
-        case .contextOverview, .memories, .capabilities, .assembly:
+        case .contextOverview, .memories, .capabilities, .mcpTools, .assembly:
             return .contextBrowser
         default:
             return .assetTable
@@ -265,6 +275,14 @@ final class AssetStore: ObservableObject {
         contextCatalog.capabilityItems.filter { item in
             includeBundledSkills || item.loadRoute.skillInstallOrigin?.isBundled != true
         }
+    }
+
+    var visibleMCPItems: [ContextCatalogItem] {
+        visibleCapabilityItems.filter { $0.asset.kind == .mcp }
+    }
+
+    var visibleNonMCPCapabilityItems: [ContextCatalogItem] {
+        visibleCapabilityItems.filter { $0.asset.kind != .mcp }
     }
 
     var contextTreeNodes: [ContextTreeNode] {
@@ -341,62 +359,88 @@ final class AssetStore: ObservableObject {
     }
 
     func resetFilters() {
-        selectedOwner = nil
-        selectedKind = nil
-        selectedHealth = nil
-        includeBundledSkills = false
-        searchText = ""
-        selectedContextTreeNodeID = nil
-        selectedSkillTriggerConflictID = nil
-        selectedAssetID = filteredAssets.first?.id
-        selectedSection = .assets
+        navigate {
+            selectedOwner = nil
+            selectedKind = nil
+            selectedHealth = nil
+            includeBundledSkills = false
+            searchText = ""
+            selectedContextTreeNodeID = nil
+            selectedSkillTriggerConflictID = nil
+            selectedAssetID = filteredAssets.first?.id
+            selectedSection = .assets
+        }
     }
 
     func showTriggerRadar() {
-        selectedSection = .triggerRadar
-        selectedContextTreeNodeID = nil
-        selectedAssetID = nil
-        selectedSkillTriggerConflictID = selectedSkillTriggerConflict?.id
+        navigate {
+            selectedSection = .triggerRadar
+            selectedContextTreeNodeID = nil
+            selectedAssetID = nil
+            selectedSkillTriggerConflictID = selectedSkillTriggerConflict?.id
+        }
     }
 
     func showContextOverview() {
-        selectedSection = .contextOverview
-        selectedSkillTriggerConflictID = nil
-        selectedAssetID = nil
+        navigate {
+            selectedSection = .contextOverview
+            selectedContextTreeNodeID = nil
+            selectedSkillTriggerConflictID = nil
+            selectedAssetID = nil
+        }
     }
 
     func showMemories() {
-        selectedSection = .memories
-        selectedContextTreeNodeID = nil
-        selectedSkillTriggerConflictID = nil
-        selectedAssetID = contextCatalog.memoryItems.first?.asset.id
+        navigate {
+            selectedSection = .memories
+            selectedContextTreeNodeID = nil
+            selectedSkillTriggerConflictID = nil
+            selectedAssetID = contextCatalog.memoryItems.first?.asset.id
+        }
     }
 
     func showCapabilities() {
-        selectedSection = .capabilities
-        selectedContextTreeNodeID = nil
-        selectedSkillTriggerConflictID = nil
-        selectedAssetID = visibleCapabilityItems.first?.asset.id
+        navigate {
+            selectedSection = .capabilities
+            selectedContextTreeNodeID = nil
+            selectedSkillTriggerConflictID = nil
+            selectedAssetID = visibleNonMCPCapabilityItems.first?.asset.id
+        }
+    }
+
+    func showMCPTools() {
+        navigate {
+            selectedSection = .mcpTools
+            selectedContextTreeNodeID = nil
+            selectedSkillTriggerConflictID = nil
+            selectedAssetID = visibleMCPItems.first?.asset.id
+        }
     }
 
     func showAssembly() {
-        selectedSection = .assembly
-        selectedContextTreeNodeID = nil
-        selectedSkillTriggerConflictID = nil
-        selectedAssetID = nil
+        navigate {
+            selectedSection = .assembly
+            selectedContextTreeNodeID = nil
+            selectedSkillTriggerConflictID = nil
+            selectedAssetID = nil
+        }
     }
 
     func showDashboard() {
-        selectedSection = .dashboard
-        selectedContextTreeNodeID = nil
-        selectedSkillTriggerConflictID = nil
+        navigate {
+            selectedSection = .dashboard
+            selectedContextTreeNodeID = nil
+            selectedSkillTriggerConflictID = nil
+        }
     }
 
     func showOrganizer() {
-        selectedSection = .organizer
-        selectedContextTreeNodeID = nil
-        selectedSkillTriggerConflictID = nil
-        selectedAssetID = nil
+        navigate {
+            selectedSection = .organizer
+            selectedContextTreeNodeID = nil
+            selectedSkillTriggerConflictID = nil
+            selectedAssetID = nil
+        }
         rebuildOrganizationMap()
         if lastOrganizationMapDate == nil {
             organizerStatus = t(.mapUsesCurrentIndex)
@@ -404,22 +448,28 @@ final class AssetStore: ObservableObject {
     }
 
     func showAssets() {
-        selectedSection = .assets
-        selectedContextTreeNodeID = nil
-        selectedSkillTriggerConflictID = nil
+        navigate {
+            selectedSection = .assets
+            selectedContextTreeNodeID = nil
+            selectedSkillTriggerConflictID = nil
+        }
     }
 
     func showArchive() {
-        selectedSection = .archive
-        selectedContextTreeNodeID = nil
-        selectedSkillTriggerConflictID = nil
+        navigate {
+            selectedSection = .archive
+            selectedContextTreeNodeID = nil
+            selectedSkillTriggerConflictID = nil
+        }
     }
 
     func showHidden() {
-        selectedSection = .hidden
-        selectedContextTreeNodeID = nil
-        selectedSkillTriggerConflictID = nil
-        selectedAssetID = nil
+        navigate {
+            selectedSection = .hidden
+            selectedContextTreeNodeID = nil
+            selectedSkillTriggerConflictID = nil
+            selectedAssetID = nil
+        }
     }
 
     func scan() {
@@ -533,6 +583,12 @@ final class AssetStore: ObservableObject {
                     || self.selectedSection == .assembly
                 {
                     self.selectedAssetID = nil
+                } else if self.selectedSection == .capabilities {
+                    self.selectedAssetID = self.visibleNonMCPCapabilityItems.first?.asset.id
+                } else if self.selectedSection == .mcpTools {
+                    self.selectedAssetID = self.visibleMCPItems.first?.asset.id
+                } else if self.selectedSection == .memories {
+                    self.selectedAssetID = self.contextCatalog.memoryItems.first?.asset.id
                 } else {
                     self.selectedAssetID = self.filteredAssets.first?.id
                 }
@@ -1122,24 +1178,30 @@ final class AssetStore: ObservableObject {
     }
 
     func select(owner: AgentOwner?) {
-        selectedSection = .assets
-        selectedContextTreeNodeID = nil
-        selectedOwner = owner
-        selectedAssetID = filteredAssets.first?.id
+        navigate {
+            selectedSection = .assets
+            selectedContextTreeNodeID = nil
+            selectedOwner = owner
+            selectedAssetID = filteredAssets.first?.id
+        }
     }
 
     func select(kind: AssetKind?) {
-        selectedSection = .assets
-        selectedContextTreeNodeID = nil
-        selectedKind = kind
-        selectedAssetID = filteredAssets.first?.id
+        navigate {
+            selectedSection = .assets
+            selectedContextTreeNodeID = nil
+            selectedKind = kind
+            selectedAssetID = filteredAssets.first?.id
+        }
     }
 
     func select(health: HealthFilter?) {
-        selectedSection = .assets
-        selectedContextTreeNodeID = nil
-        selectedHealth = health
-        selectedAssetID = filteredAssets.first?.id
+        navigate {
+            selectedSection = .assets
+            selectedContextTreeNodeID = nil
+            selectedHealth = health
+            selectedAssetID = filteredAssets.first?.id
+        }
     }
 
     func saveOpenAISettings() {
@@ -1173,6 +1235,24 @@ final class AssetStore: ObservableObject {
 
     func saveGeneralSettings() {
         UserDefaults.standard.set(appLanguage.rawValue, forKey: Self.appLanguageDefaultsKey)
+    }
+
+    func zoomInterfaceIn() {
+        setInterfaceZoomLevel(interfaceZoomLevel.zoomedIn)
+    }
+
+    func zoomInterfaceOut() {
+        setInterfaceZoomLevel(interfaceZoomLevel.zoomedOut)
+    }
+
+    func resetInterfaceZoom() {
+        setInterfaceZoomLevel(.defaultLevel)
+    }
+
+    private func setInterfaceZoomLevel(_ level: InterfaceZoomLevel) {
+        guard interfaceZoomLevel != level else { return }
+        interfaceZoomLevel = level
+        UserDefaults.standard.set(level.rawValue, forKey: Self.interfaceZoomLevelDefaultsKey)
     }
 
     func enrichSelectedAsset() {
@@ -1257,10 +1337,12 @@ final class AssetStore: ObservableObject {
               let asset = assets.first(where: { $0.path == path }) else {
             return
         }
-        selectedSection = .assets
-        selectedContextTreeNodeID = nil
-        selectedSkillTriggerConflictID = nil
-        selectedAssetID = asset.id
+        navigate {
+            selectedSection = .assets
+            selectedContextTreeNodeID = nil
+            selectedSkillTriggerConflictID = nil
+            selectedAssetID = asset.id
+        }
     }
 
     func focusAsset(path: String?) {
@@ -1273,11 +1355,83 @@ final class AssetStore: ObservableObject {
         selectedAssetID = asset.id
     }
 
+    func memoryMigrationPlan(for asset: AgentAsset, to target: AgentOwner) -> MemoryMigrationPlan? {
+        guard let side = MemoryMigrationSide(owner: target) else { return nil }
+        return try? memoryMigrationPlanner.plan(
+            for: asset,
+            target: side,
+            projectDirectory: memoryMigrationProjectDirectory
+        )
+    }
+
+    func existingMemoryTargetPath(
+        for asset: AgentAsset,
+        to target: AgentOwner,
+        plannedDestinationPath: String? = nil
+    ) -> String? {
+        guard let side = MemoryMigrationSide(owner: target) else { return nil }
+        return memoryMigrationPlanner.existingTargetMemory(
+            for: asset,
+            target: side,
+            in: contextCatalog.memoryItems,
+            plannedDestinationPath: plannedDestinationPath
+        )?.asset.path
+    }
+
+    @discardableResult
+    func migrateMemory(_ asset: AgentAsset, to target: AgentOwner) -> MemoryMigrationResult? {
+        guard let side = MemoryMigrationSide(owner: target) else {
+            memoryMigrationStatus = nil
+            managementError = memoryMigrationErrorPrefix + "unsupported target"
+            return nil
+        }
+
+        do {
+            let plan = try memoryMigrationPlanner.plan(
+                for: asset,
+                target: side,
+                projectDirectory: memoryMigrationProjectDirectory
+            )
+            if let existingPath = memoryMigrationPlanner.existingTargetMemory(
+                for: asset,
+                target: side,
+                in: contextCatalog.memoryItems,
+                plannedDestinationPath: plan.destinationPath
+            )?.asset.path {
+                memoryMigrationStatus = nil
+                managementError = memoryMigrationTargetExistsMessage(path: existingPath)
+                return nil
+            }
+
+            let result = try memoryMigrationPlanner.migrate(
+                asset: asset,
+                target: side,
+                projectDirectory: memoryMigrationProjectDirectory
+            )
+            memoryMigrationStatus = memoryMigrationSuccessMessage(result: result)
+            managementError = nil
+            markManagedFileEvent(
+                path: result.plan.destinationPath,
+                message: memoryMigrationStatus ?? ""
+            )
+            if !isScanning {
+                scan()
+            }
+            return result
+        } catch {
+            memoryMigrationStatus = nil
+            managementError = "\(memoryMigrationErrorPrefix)\(error.localizedDescription)"
+            return nil
+        }
+    }
+
     func selectContextTreeNode(_ node: ContextTreeNode) {
-        selectedSection = .contextOverview
-        selectedContextTreeNodeID = node.id
-        selectedSkillTriggerConflictID = nil
-        selectedAssetID = node.asset?.id
+        navigate {
+            selectedSection = .contextOverview
+            selectedContextTreeNodeID = node.id
+            selectedSkillTriggerConflictID = nil
+            selectedAssetID = node.asset?.id
+        }
     }
 
     func focusContextAsset(path: String?) {
@@ -1285,17 +1439,21 @@ final class AssetStore: ObservableObject {
               let asset = visibleAssets.first(where: { $0.path == path }) else {
             return
         }
-        selectedSection = .contextOverview
-        selectedContextTreeNodeID = nil
-        selectedSkillTriggerConflictID = nil
-        selectedAssetID = asset.id
+        navigate {
+            selectedSection = .contextOverview
+            selectedContextTreeNodeID = nil
+            selectedSkillTriggerConflictID = nil
+            selectedAssetID = asset.id
+        }
     }
 
     func selectSkillTriggerConflict(_ conflict: SkillTriggerConflict) {
-        selectedSection = .triggerRadar
-        selectedContextTreeNodeID = nil
-        selectedAssetID = nil
-        selectedSkillTriggerConflictID = conflict.id
+        navigate {
+            selectedSection = .triggerRadar
+            selectedContextTreeNodeID = nil
+            selectedAssetID = nil
+            selectedSkillTriggerConflictID = conflict.id
+        }
     }
 
     func openRisk(_ risk: DashboardRiskItem) {
@@ -1308,6 +1466,57 @@ final class AssetStore: ObservableObject {
 
     func openChange(_ change: AssetChange) {
         selectAsset(path: change.path)
+    }
+
+    func goBack() {
+        guard let previousState = navigationBackStack.popLast() else { return }
+        applyNavigationState(previousState)
+        updateBackAvailability()
+    }
+
+    private func navigate(_ update: () -> Void) {
+        let previousState = currentNavigationState()
+        update()
+        let currentState = currentNavigationState()
+        guard currentState != previousState else { return }
+
+        if navigationBackStack.last != previousState {
+            navigationBackStack.append(previousState)
+        }
+        if navigationBackStack.count > 40 {
+            navigationBackStack.removeFirst(navigationBackStack.count - 40)
+        }
+        updateBackAvailability()
+    }
+
+    private func currentNavigationState() -> WorkspaceNavigationState {
+        WorkspaceNavigationState(
+            selectedSection: selectedSection,
+            selectedOwner: selectedOwner,
+            selectedKind: selectedKind,
+            selectedHealth: selectedHealth,
+            selectedAssetID: selectedAssetID,
+            selectedContextTreeNodeID: selectedContextTreeNodeID,
+            selectedSkillTriggerConflictID: selectedSkillTriggerConflictID
+        )
+    }
+
+    private func applyNavigationState(_ state: WorkspaceNavigationState) {
+        selectedSection = state.selectedSection
+        selectedOwner = state.selectedOwner
+        selectedKind = state.selectedKind
+        selectedHealth = state.selectedHealth
+        selectedAssetID = state.selectedAssetID
+        selectedContextTreeNodeID = state.selectedContextTreeNodeID
+        selectedSkillTriggerConflictID = state.selectedSkillTriggerConflictID
+
+        if selectedSection == .organizer {
+            rebuildOrganizationMap()
+        }
+    }
+
+    private func updateBackAvailability() {
+        canGoBack = !navigationBackStack.isEmpty
     }
 
     private func saveScanSources() {
@@ -1623,6 +1832,38 @@ final class AssetStore: ObservableObject {
         )
     }
 
+    private var memoryMigrationErrorPrefix: String {
+        appLanguage == .simplifiedChinese ? "记忆迁移失败：" : "Memory migration failed: "
+    }
+
+    private var memoryMigrationProjectDirectory: URL {
+        guard projectRootPath != nil else {
+            return FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
+        }
+        return Self.projectDirectory(from: projectRootPath)
+    }
+
+    private func memoryMigrationSuccessMessage(result: MemoryMigrationResult) -> String {
+        let destination = Self.displayPath(result.plan.destinationPath)
+        switch appLanguage {
+        case .english:
+            return "Copied \(result.plan.title) to \(result.plan.targetSide.owner.shortName): \(destination)"
+        case .simplifiedChinese:
+            let target = result.plan.targetSide == .claude ? t(.claudeCode) : "Codex"
+            return "已把 \(result.plan.title) 复制到 \(target)：\(destination)"
+        }
+    }
+
+    private func memoryMigrationTargetExistsMessage(path: String) -> String {
+        let displayPath = Self.displayPath(path)
+        switch appLanguage {
+        case .english:
+            return "\(memoryMigrationErrorPrefix)target already has a matching memory, so nothing was copied: \(displayPath)"
+        case .simplifiedChinese:
+            return "\(memoryMigrationErrorPrefix)目标 agent 已有对应记忆，未复制：\(displayPath)"
+        }
+    }
+
     private func recordFileEvents(_ paths: [String]) {
         guard !isScanning else { return }
         let relevantPaths = ScanSourceEventFilter.relevantEventPaths(paths, sources: activeScanSources)
@@ -1693,4 +1934,14 @@ final class AssetStore: ObservableObject {
         }
         return log
     }
+}
+
+private struct WorkspaceNavigationState: Equatable {
+    let selectedSection: WorkspaceSection
+    let selectedOwner: AgentOwner?
+    let selectedKind: AssetKind?
+    let selectedHealth: HealthFilter?
+    let selectedAssetID: AgentAsset.ID?
+    let selectedContextTreeNodeID: ContextTreeNode.ID?
+    let selectedSkillTriggerConflictID: SkillTriggerConflict.ID?
 }

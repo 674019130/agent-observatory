@@ -45,9 +45,13 @@ losing them.
 These sample images use sanitized demo data and paths so the public README does
 not expose anyone's local machine.
 
-| Context observatory | Trigger radar | AI organizer |
-|---|---|---|
-| [![Context observatory sample](docs/assets/sample-overview.png)](docs/assets/sample-overview.png) | [![Trigger radar sample](docs/assets/sample-trigger-radar.png)](docs/assets/sample-trigger-radar.png) | [![AI organizer sample](docs/assets/sample-ai-organizer.png)](docs/assets/sample-ai-organizer.png) |
+| Context observatory | Asset inspector |
+|---|---|
+| [![Context observatory sample](docs/assets/sample-overview.png)](docs/assets/sample-overview.png) | [![Asset inspector sample](docs/assets/sample-assets.png)](docs/assets/sample-assets.png) |
+
+| Trigger radar | AI organizer |
+|---|---|
+| [![Trigger radar sample](docs/assets/sample-trigger-radar.png)](docs/assets/sample-trigger-radar.png) | [![AI organizer sample](docs/assets/sample-ai-organizer.png)](docs/assets/sample-ai-organizer.png) |
 
 ## Features
 
@@ -64,7 +68,15 @@ not expose anyone's local machine.
   See memories, capabilities, and assembly steps side by side so it is clear
   which files become prompt material, registries, support files, or history.
   Small official-doc tips link back to the relevant OpenAI and Claude Code
-  documentation sections.
+  documentation sections. Large capability sets are grouped by package or
+  repository and collapsed by default; MCP entries stay in their own section so
+  skills and tool servers do not blur together.
+
+- **Memory migration preview**
+  See whether a memory exists in Claude Code, Codex, or both before copying it
+  to the other agent system. Destination files are checked first, so the UI can
+  show whether a copy will create a file, skip an existing target, or need
+  manual review.
 
 - **Skill trigger radar**  
   Detect user, project, bundled, and plugin skills that compete for the same
@@ -87,7 +99,9 @@ not expose anyone's local machine.
 
 - **Soft management tools**  
   Hide noisy files from the main index, restore hidden files later, or archive
-  files into a managed location with restore support.
+  files into a managed location with restore support. Copy and migration actions
+  use preview sheets so the source, destination, and overwrite status are visible
+  before anything is written.
 
 - **Bilingual UI**  
   Switch between English and Simplified Chinese from Settings.
@@ -217,8 +231,9 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for the working roadmap. The next
 sequence is:
 
 - Keep ad-hoc release packaging and document the macOS security prompt tradeoff.
-- Add regression coverage for the context browser, path preview, Finder opening,
-  and OpenAI explanation selection flow.
+- Keep regression coverage around context browser selection, lazy tree loading,
+  asset filter layout, path preview, Finder opening, copy preview, and OpenAI
+  explanation selection flow.
 - Build dependency graph visualization for memory, capability, MCP, and project
   instruction relationships.
 - Add import/export for management state so hide/archive decisions can be backed

@@ -44,9 +44,13 @@ memory、哪个 skill 会抢答、哪些命令还引用旧路径时，Agent Obse
 
 以下图片使用脱敏示例数据和虚构路径，不会暴露本机真实文件。
 
-| 上下文观察台 | 触发雷达 | AI 整理器 |
-|---|---|---|
-| [![上下文观察台示例](docs/assets/sample-overview.png)](docs/assets/sample-overview.png) | [![触发雷达示例](docs/assets/sample-trigger-radar.png)](docs/assets/sample-trigger-radar.png) | [![AI 整理器示例](docs/assets/sample-ai-organizer.png)](docs/assets/sample-ai-organizer.png) |
+| 上下文观察台 | 资产详情 |
+|---|---|
+| [![上下文观察台示例](docs/assets/sample-overview.png)](docs/assets/sample-overview.png) | [![资产详情示例](docs/assets/sample-assets.png)](docs/assets/sample-assets.png) |
+
+| 触发雷达 | AI 整理器 |
+|---|---|
+| [![触发雷达示例](docs/assets/sample-trigger-radar.png)](docs/assets/sample-trigger-radar.png) | [![AI 整理器示例](docs/assets/sample-ai-organizer.png)](docs/assets/sample-ai-organizer.png) |
 
 ## 功能
 
@@ -60,7 +64,13 @@ memory、哪个 skill 会抢答、哪些命令还引用旧路径时，Agent Obse
 - **Claude Code 与 Codex 的上下文浏览器**
   并排查看 memories、capabilities 和上下文组装步骤，弄清哪些文件会成为
   prompt material、注册表、辅助文件或历史记录。界面中的小 Tips 会链接到
-  OpenAI 和 Claude Code 官方文档位置。
+  OpenAI 和 Claude Code 官方文档位置。大量 capability 会按安装包或仓库归组并
+  默认折叠；MCP 单独成区，避免 skill 和工具服务器混在一起。
+
+- **Memory 迁移预览**
+  先展示某条 memory 存在于 Claude Code、Codex，还是两边都有，再决定是否复制到
+  另一套 agent system。执行前会检查目标文件是否已存在，明确显示会创建、跳过，
+  还是需要人工确认。
 
 - **Skill 触发雷达**
   识别用户、项目、内置和插件 skills 之间的意图重叠，避免错误能力先响应。
@@ -80,6 +90,7 @@ memory、哪个 skill 会抢答、哪些命令还引用旧路径时，Agent Obse
 
 - **软管理工具**
   可以把噪音文件从主索引隐藏，之后再恢复；也可以归档到受管理位置，并支持恢复。
+  复制和迁移动作会进入预览弹窗，让源文件、目标文件和覆盖状态在写入前可见。
 
 - **双语界面**
   可在 Settings 中切换 English 和简体中文。
@@ -199,7 +210,8 @@ dist/AgentObservatory.app
 工作路线图见 [docs/ROADMAP.md](docs/ROADMAP.md)。当前方向是：
 
 - 保持 ad-hoc release packaging，并记录 macOS 安全提示的取舍。
-- 为 context browser、path preview、Finder 打开、OpenAI explanation 选择流程补回归覆盖。
+- 持续覆盖 context browser 选择、树懒加载、资产筛选布局、path preview、Finder 打开、
+  复制预览和 OpenAI explanation 选择流程。
 - 构建 memory、capability、MCP、project instruction 之间的依赖图可视化。
 - 为 hide/archive 决策添加 management state import/export。
 - 等 Claude Code 和 Codex 模型稳定后，添加更多 agent runtime 的 source presets。

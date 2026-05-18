@@ -1,13 +1,13 @@
 # Roadmap
 
-Last updated: 2026-05-14
+Last updated: 2026-05-19
 
 Current release: `v0.2.1`
 
 Agent Observatory is now useful as a local command center for understanding
-Claude Code and Codex context files. The next route is to keep releases practical
-without an Apple Developer Program account, make key flows harder to regress, and
-show why one agent file affects another.
+Claude Code and Codex context files. The main branch now continues the `v0.2.x`
+line with UI stability, capability grouping, memory migration previews, and
+clearer copy flows before the larger relationship-map milestone.
 
 ## Product Direction
 
@@ -20,6 +20,26 @@ Keep the product local-first and inspection-first:
   from LLM enrichment.
 - Make the right pane a reliable detail surface for every middle-column
   selection.
+- Keep user-authored files easier to find than bundled or official assets.
+- When an action copies or migrates context, show the source, destination, and
+  existing-target status before writing anything.
+
+## Current v0.2.x Iteration
+
+This is the active polish track after `v0.2.1`:
+
+- Capability browsing is grouped by package or repository and collapsed by
+  default, so large skill installs do not render hundreds of rows at once.
+- MCP entries are split from general capabilities, because skills and tool
+  servers answer different user questions.
+- Memory rows show Claude Code vs Codex presence before migration, and migration
+  plans check whether the destination file already exists.
+- Copy-to-agent actions use visible preview sheets instead of silent clipboard or
+  filesystem actions.
+- The Assets page uses an adaptive filter header; compact windows collapse owner
+  and health filters into menus instead of overlapping labels.
+- Tree-style context browsing should stay lazy-loaded for large indexes while
+  preserving the existing hierarchy.
 
 ## v0.2.x: Practical Release Maintenance
 
@@ -33,6 +53,9 @@ Developer ID signing a blocker.
   selection, path preview popovers, Finder opening, and OpenAI explanation.
 - Keep focused regression coverage around the context selection and inspector
   state paths that caused the post-`v0.2.0` selection bug.
+- Keep copy and migration flows conservative when the target file already exists.
+- Keep list rendering incremental for large memory, capability, MCP, and asset
+  indexes.
 - Keep Developer ID signing, hardened runtime, notarization, and stapling as an
   optional future path, not the next milestone.
 

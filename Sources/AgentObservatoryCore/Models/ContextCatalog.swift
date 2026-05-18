@@ -103,6 +103,156 @@ public struct ContextAssemblyStep: Identifiable, Codable, Hashable, Sendable {
     }
 }
 
+public struct ContextCapabilityGroup: Identifiable, Codable, Hashable, Sendable {
+    public let id: String
+    public let title: String
+    public let subtitle: String
+    public let rootPath: String
+    public let groupingBasis: ContextCapabilityGroupingBasis
+    public let origin: SkillInstallOrigin?
+    public let primaryKind: AssetKind
+    public let kindCounts: [AssetKind: Int]
+    public let owners: [AgentOwner]
+    public let surfaces: [AgentOwner]
+    public let items: [ContextCatalogItem]
+
+    public init(
+        id: String,
+        title: String,
+        subtitle: String,
+        rootPath: String,
+        groupingBasis: ContextCapabilityGroupingBasis,
+        origin: SkillInstallOrigin?,
+        primaryKind: AssetKind,
+        kindCounts: [AssetKind: Int],
+        owners: [AgentOwner],
+        surfaces: [AgentOwner],
+        items: [ContextCatalogItem]
+    ) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.rootPath = rootPath
+        self.groupingBasis = groupingBasis
+        self.origin = origin
+        self.primaryKind = primaryKind
+        self.kindCounts = kindCounts
+        self.owners = owners
+        self.surfaces = surfaces
+        self.items = items
+    }
+}
+
+public struct ContextCapabilityGroupingBasis: Codable, Hashable, Sendable {
+    public let kind: ContextCapabilityGroupingBasisKind
+    public let sourceURL: String?
+    public let sourceLocation: String?
+    public let isRuntimeMerge: Bool
+
+    public init(
+        kind: ContextCapabilityGroupingBasisKind,
+        sourceURL: String? = nil,
+        sourceLocation: String? = nil,
+        isRuntimeMerge: Bool = false
+    ) {
+        self.kind = kind
+        self.sourceURL = sourceURL
+        self.sourceLocation = sourceLocation
+        self.isRuntimeMerge = isRuntimeMerge
+    }
+
+    public static func official(_ kind: ContextCapabilityGroupingBasisKind) -> ContextCapabilityGroupingBasis {
+        ContextCapabilityGroupingBasis(
+            kind: kind,
+            sourceURL: kind.sourceURL,
+            sourceLocation: kind.sourceLocation,
+            isRuntimeMerge: false
+        )
+    }
+}
+
+public enum ContextCapabilityGroupingBasisKind: String, CaseIterable, Codable, Sendable {
+    case skillDirectory
+    case pluginBundle
+    case repositorySkillDirectory
+    case sameNameSkillCopies
+    case skillNameFamily
+    case mcpConfiguration
+    case parentDirectory
+
+    public var sourceURL: String? {
+        switch self {
+        case .skillDirectory, .repositorySkillDirectory, .skillNameFamily:
+            return "https://agentskills.io/specification"
+        case .pluginBundle:
+            return "https://developers.openai.com/codex/plugins"
+        case .sameNameSkillCopies:
+            return "https://developers.openai.com/codex/skills"
+        case .mcpConfiguration:
+            return "https://developers.openai.com/codex/mcp"
+        case .parentDirectory:
+            return nil
+        }
+    }
+
+    public var sourceLocation: String? {
+        switch self {
+        case .skillDirectory, .repositorySkillDirectory, .skillNameFamily:
+            return "Agent Skills Specification > Directory structure"
+        case .pluginBundle:
+            return "Codex Plugins > Overview > A plugin can contain Skills"
+        case .sameNameSkillCopies:
+            return "Codex Skills > Where to save skills"
+        case .mcpConfiguration:
+            return "Codex MCP > Connect Codex to an MCP server"
+        case .parentDirectory:
+            return nil
+        }
+    }
+}
+
+public enum ContextCapabilityCategory: String, CaseIterable, Codable, Identifiable, Sendable {
+    case userSkills
+    case mcpTools
+    case localCapabilities
+    case officialCapabilities
+    case otherCapabilities
+
+    public var id: String { rawValue }
+
+    public var sortIndex: Int {
+        switch self {
+        case .userSkills: 0
+        case .mcpTools: 1
+        case .localCapabilities: 2
+        case .officialCapabilities: 3
+        case .otherCapabilities: 4
+        }
+    }
+
+    public var isLowPriority: Bool {
+        self == .officialCapabilities || self == .otherCapabilities
+    }
+}
+
+public struct ContextCapabilitySection: Identifiable, Codable, Hashable, Sendable {
+    public var id: String { category.rawValue }
+    public let category: ContextCapabilityCategory
+    public let groups: [ContextCapabilityGroup]
+
+    public var itemCount: Int {
+        groups.reduce(0) { $0 + $1.items.count }
+    }
+
+    public init(
+        category: ContextCapabilityCategory,
+        groups: [ContextCapabilityGroup]
+    ) {
+        self.category = category
+        self.groups = groups
+    }
+}
+
 public struct ContextCatalog: Codable, Hashable, Sendable {
     public let memoryItems: [ContextCatalogItem]
     public let capabilityItems: [ContextCatalogItem]

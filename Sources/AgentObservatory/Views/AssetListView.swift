@@ -4,6 +4,7 @@ import SwiftUI
 
 struct AssetListView: View {
     @EnvironmentObject private var store: AssetStore
+    @State private var assetPendingHide: AgentAsset?
     @State private var assetPendingArchive: AgentAsset?
     @State private var archiveReason = ""
 
@@ -21,7 +22,7 @@ struct AssetListView: View {
                 AssetManagementActionBar(
                     asset: selectedAsset,
                     onHide: {
-                        store.hideAsset(selectedAsset)
+                        assetPendingHide = selectedAsset
                     },
                     onArchive: {
                         archiveReason = ""
@@ -85,7 +86,7 @@ struct AssetListView: View {
                         }
                         Divider()
                         Button(store.t(.hideFromObservatory)) {
-                            store.hideAsset(asset)
+                            assetPendingHide = asset
                         }
                         Button("\(store.t(.archiveAction))...") {
                             archiveReason = ""
@@ -96,6 +97,18 @@ struct AssetListView: View {
             }
         }
         .navigationTitle(store.t(.assets))
+        .sheet(item: $assetPendingHide) { asset in
+            HideConfirmationSheet(
+                asset: asset,
+                onHide: {
+                    store.hideAsset(asset)
+                    assetPendingHide = nil
+                },
+                onCancel: {
+                    assetPendingHide = nil
+                }
+            )
+        }
         .sheet(item: $assetPendingArchive) { asset in
             ArchiveConfirmationSheet(
                 asset: asset,
@@ -142,8 +155,7 @@ private struct AssetManagementActionBar: View {
                 foregroundColor: .secondary,
                 language: store.appLanguage
             )
-
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             ControlGroup {
                 Button(action: onHide) {
@@ -158,6 +170,7 @@ private struct AssetManagementActionBar: View {
                 }
                 .help(store.t(.archiveAction))
             }
+            .fixedSize()
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 5)
@@ -208,47 +221,73 @@ private struct AssetListHeader: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Picker(store.t(.owner), selection: $store.selectedOwner) {
-                    Text(store.t(.all)).tag(AgentOwner?.none)
-                    Text(L10n.agentOwner(.claude, language: store.appLanguage)).tag(AgentOwner?.some(.claude))
-                    Text(L10n.agentOwner(.codex, language: store.appLanguage)).tag(AgentOwner?.some(.codex))
-                    Text(L10n.agentOwner(.agents, language: store.appLanguage)).tag(AgentOwner?.some(.agents))
-                    Text(L10n.agentOwner(.project, language: store.appLanguage)).tag(AgentOwner?.some(.project))
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 292)
-
-                AssetFilterMenu()
-
-                if store.bundledSkillCount > 0 && !store.includeBundledSkills {
-                    Image(systemName: "eye.slash")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .help(String(format: store.t(.bundledSkillsHidden), store.bundledSkillCount))
-                }
-
-                Spacer(minLength: 8)
-
-                if hasActiveFilters {
-                    Button {
-                        store.resetFilters()
-                    } label: {
-                        Image(systemName: "arrow.counterclockwise.circle")
-                            .compactHitTarget()
-                    }
-                    .buttonStyle(.bordered)
-                    .help(store.t(.resetFilters))
-                }
-
-                Text("\(store.filteredAssets.count) \(store.t(.items))")
-                    .foregroundStyle(.secondary)
-                    .font(.callout)
+            ViewThatFits(in: .horizontal) {
+                regularFilterRow
+                compactFilterRow
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
         }
         .background(.bar)
+    }
+
+    private var regularFilterRow: some View {
+        HStack(spacing: 10) {
+            AssetOwnerSegmentedFilter()
+                .frame(minWidth: 390, idealWidth: 430, maxWidth: 460)
+                .layoutPriority(2)
+
+            AssetFilterMenu()
+                .fixedSize()
+
+            BundledSkillHiddenIndicator()
+
+            Spacer(minLength: 10)
+
+            resetButton
+            itemCountLabel
+        }
+    }
+
+    private var compactFilterRow: some View {
+        HStack(spacing: 8) {
+            AssetOwnerMenu()
+                .fixedSize()
+
+            AssetFilterMenu(showTextLabel: true)
+                .fixedSize()
+
+            BundledSkillHiddenIndicator()
+
+            Spacer(minLength: 8)
+
+            resetButton
+            itemCountLabel
+        }
+    }
+
+    @ViewBuilder
+    private var resetButton: some View {
+        if hasActiveFilters {
+            Button {
+                store.resetFilters()
+            } label: {
+                Image(systemName: "arrow.counterclockwise.circle")
+                    .compactHitTarget()
+            }
+            .buttonStyle(.bordered)
+            .help(store.t(.resetFilters))
+            .fixedSize()
+        }
+    }
+
+    private var itemCountLabel: some View {
+        Text("\(store.filteredAssets.count) \(store.t(.items))")
+            .foregroundStyle(.secondary)
+            .font(.callout)
+            .lineLimit(1)
+            .monospacedDigit()
+            .fixedSize(horizontal: true, vertical: false)
     }
 
     private var hasActiveFilters: Bool {
@@ -262,6 +301,7 @@ private struct AssetListHeader: View {
 
 private struct AssetFilterMenu: View {
     @EnvironmentObject private var store: AssetStore
+    var showTextLabel = false
 
     var body: some View {
         Menu {
@@ -295,8 +335,14 @@ private struct AssetFilterMenu: View {
                 )
             }
         } label: {
-            Image(systemName: "line.3.horizontal.decrease.circle")
-                .compactHitTarget()
+            if showTextLabel {
+                Label(menuTitle, systemImage: "line.3.horizontal.decrease.circle")
+                    .lineLimit(1)
+                    .frame(minHeight: HitTarget.compact)
+            } else {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+                    .compactHitTarget()
+            }
         }
         .menuStyle(.button)
         .buttonStyle(.bordered)
@@ -314,6 +360,98 @@ private struct AssetFilterMenu: View {
         let title = store.includeBundledSkills ? store.t(.hideBundledSkills) : store.t(.showBundledSkills)
         guard store.bundledSkillCount > 0 else { return title }
         return "\(title) · \(store.bundledSkillCount)"
+    }
+}
+
+private struct AssetOwnerSegmentedFilter: View {
+    @EnvironmentObject private var store: AssetStore
+
+    var body: some View {
+        Picker(store.t(.owner), selection: ownerSelection) {
+            Text(store.t(.all)).tag(AgentOwner?.none)
+            Text(L10n.agentOwner(.claude, language: store.appLanguage)).tag(AgentOwner?.some(.claude))
+            Text(L10n.agentOwner(.codex, language: store.appLanguage)).tag(AgentOwner?.some(.codex))
+            Text(L10n.agentOwner(.agents, language: store.appLanguage)).tag(AgentOwner?.some(.agents))
+            Text(L10n.agentOwner(.project, language: store.appLanguage)).tag(AgentOwner?.some(.project))
+        }
+        .pickerStyle(.segmented)
+    }
+
+    private var ownerSelection: Binding<AgentOwner?> {
+        Binding(
+            get: { store.selectedOwner },
+            set: { store.select(owner: $0) }
+        )
+    }
+}
+
+private struct AssetOwnerMenu: View {
+    @EnvironmentObject private var store: AssetStore
+
+    var body: some View {
+        Menu {
+            Button {
+                store.select(owner: nil)
+            } label: {
+                Label(store.t(.all), systemImage: store.selectedOwner == nil ? "checkmark" : "circle")
+            }
+
+            Divider()
+
+            ForEach([AgentOwner.claude, .codex, .agents, .project]) { owner in
+                Button {
+                    store.select(owner: store.selectedOwner == owner ? nil : owner)
+                } label: {
+                    Label(
+                        L10n.agentOwner(owner, language: store.appLanguage),
+                        systemImage: store.selectedOwner == owner ? "checkmark" : ownerIcon(owner)
+                    )
+                }
+            }
+        } label: {
+            Label(ownerMenuTitle, systemImage: ownerIcon(store.selectedOwner))
+                .lineLimit(1)
+                .frame(minHeight: HitTarget.compact)
+        }
+        .menuStyle(.button)
+        .buttonStyle(.bordered)
+        .help(store.t(.owner))
+    }
+
+    private var ownerMenuTitle: String {
+        guard let selectedOwner = store.selectedOwner else { return store.t(.all) }
+        return L10n.agentOwner(selectedOwner, language: store.appLanguage)
+    }
+}
+
+private struct BundledSkillHiddenIndicator: View {
+    @EnvironmentObject private var store: AssetStore
+
+    var body: some View {
+        if store.bundledSkillCount > 0 && !store.includeBundledSkills {
+            Image(systemName: "eye.slash")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .frame(width: 20, height: HitTarget.compact)
+                .help(String(format: store.t(.bundledSkillsHidden), store.bundledSkillCount))
+        }
+    }
+}
+
+private func ownerIcon(_ owner: AgentOwner?) -> String {
+    switch owner {
+    case .claude:
+        "terminal"
+    case .codex:
+        "shippingbox"
+    case .agents:
+        "person.3"
+    case .project:
+        "folder"
+    case .unknown:
+        "questionmark.circle"
+    case nil:
+        "line.3.horizontal.decrease.circle"
     }
 }
 

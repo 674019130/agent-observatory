@@ -29,6 +29,10 @@ public enum L10n {
         case removeCustomSource
         case openAI
         case openAIDescription
+        case viewMenu
+        case zoomIn
+        case zoomOut
+        case actualSize
         case apiKey
         case model
         case modelDescription
@@ -336,6 +340,7 @@ public enum L10n {
         case finder
         case ok
         case toggleSidebar
+        case goBack
         case clearSearch
         case name
         case kind
@@ -1003,6 +1008,10 @@ public enum L10n {
         .removeCustomSource: [.english: "Remove custom source", .simplifiedChinese: "移除自定义来源"],
         .openAI: [.english: "OpenAI", .simplifiedChinese: "OpenAI"],
         .openAIDescription: [.english: "The app sends only redacted file previews for per-file explanations. Sensitive files such as auth.json are never previewed.", .simplifiedChinese: "应用只会发送经过脱敏的文件预览用于逐文件解释。auth.json 等敏感文件永远不会被预览。"],
+        .viewMenu: [.english: "View", .simplifiedChinese: "显示"],
+        .zoomIn: [.english: "Zoom In", .simplifiedChinese: "放大"],
+        .zoomOut: [.english: "Zoom Out", .simplifiedChinese: "缩小"],
+        .actualSize: [.english: "Actual Size", .simplifiedChinese: "实际大小"],
         .apiKey: [.english: "API key", .simplifiedChinese: "API key"],
         .model: [.english: "Model", .simplifiedChinese: "模型"],
         .modelDescription: [.english: "Default model is gpt-5.5. You can type any OpenAI model name your account can use.", .simplifiedChinese: "默认模型为 gpt-5.5。你也可以输入当前账号可用的任意 OpenAI 模型名。"],
@@ -1094,7 +1103,7 @@ public enum L10n {
         .capabilitySource: [.english: "Capability Source", .simplifiedChinese: "能力来源"],
         .filters: [.english: "Filters", .simplifiedChinese: "筛选"],
         .allHealth: [.english: "All Health", .simplifiedChinese: "全部状态"],
-        .userSkillsOnly: [.english: "User Skills Only", .simplifiedChinese: "仅用户 Skill"],
+        .userSkillsOnly: [.english: "User Imports First", .simplifiedChinese: "用户导入优先"],
         .showBundledSkills: [.english: "Show Preset and Official Skills", .simplifiedChinese: "显示预置和官方 Skill"],
         .hideBundledSkills: [.english: "Hide Preset and Official Skills", .simplifiedChinese: "隐藏预置和官方 Skill"],
         .bundledSkillsHidden: [.english: "%d preset or official skills hidden", .simplifiedChinese: "已隐藏 %d 个预置或官方 Skill"],
@@ -1310,6 +1319,7 @@ public enum L10n {
         .finder: [.english: "Finder", .simplifiedChinese: "Finder"],
         .ok: [.english: "OK", .simplifiedChinese: "正常"],
         .toggleSidebar: [.english: "Toggle sidebar", .simplifiedChinese: "切换侧边栏"],
+        .goBack: [.english: "Back", .simplifiedChinese: "返回上一个界面"],
         .clearSearch: [.english: "Clear search", .simplifiedChinese: "清空搜索"],
         .name: [.english: "Name", .simplifiedChinese: "名称"],
         .kind: [.english: "Kind", .simplifiedChinese: "类型"],

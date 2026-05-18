@@ -2,6 +2,7 @@ import AgentObservatoryCore
 import SwiftUI
 
 private let memoryTypeVisibleBatchSize = 40
+private let capabilityGroupVisibleBatchSize = 40
 
 struct ContextOverviewView: View {
     var body: some View {
@@ -34,25 +35,74 @@ struct MemoryBrowserView: View {
 
 struct CapabilityBrowserView: View {
     @EnvironmentObject private var store: AssetStore
+    @State private var expandedGroupIDs: Set<ContextCapabilityGroup.ID> = []
 
     private var filteredItems: [ContextCatalogItem] {
-        store.visibleCapabilityItems.filter { item in
+        store.visibleNonMCPCapabilityItems.filter { item in
             item.asset.matchesSearch(query: store.searchText)
         }
     }
 
+    private var sections: [ContextCapabilitySection] {
+        ContextCapabilityGrouper().sections(items: filteredItems)
+    }
+
     var body: some View {
-        ContextItemCollectionView(
+        CapabilityGroupCollectionView(
             title: store.t(.capabilities),
             subtitle: store.t(.contextBrowserSubtitle),
             systemImage: "puzzlepiece.extension",
             tint: .teal,
-            items: filteredItems,
-            groupTitle: { item in capabilityGroupTitle(item, language: store.appLanguage) },
-            groupRank: { capabilityGroupRank($0) },
-            showsSkillVisibilityControl: true
+            sections: sections,
+            tips: OfficialDocTips.tips(
+                for: .capabilities,
+                language: store.appLanguage
+            ),
+            showsBundledSkillToggle: true,
+            expandedGroupIDs: $expandedGroupIDs
         )
         .navigationTitle(store.t(.capabilities))
+    }
+}
+
+struct MCPBrowserView: View {
+    @EnvironmentObject private var store: AssetStore
+    @State private var expandedGroupIDs: Set<ContextCapabilityGroup.ID> = []
+
+    private var filteredItems: [ContextCatalogItem] {
+        store.visibleMCPItems.filter { item in
+            item.asset.matchesSearch(query: store.searchText)
+        }
+    }
+
+    private var sections: [ContextCapabilitySection] {
+        ContextCapabilityGrouper().sections(items: filteredItems)
+    }
+
+    var body: some View {
+        CapabilityGroupCollectionView(
+            title: "MCP",
+            subtitle: mcpBrowserSubtitle(language: store.appLanguage),
+            systemImage: "point.3.connected.trianglepath.dotted",
+            tint: .orange,
+            sections: sections,
+            tips: OfficialDocTips.tips(
+                for: .mcpTools,
+                language: store.appLanguage
+            ),
+            showsBundledSkillToggle: false,
+            expandedGroupIDs: $expandedGroupIDs
+        )
+        .navigationTitle("MCP")
+    }
+}
+
+private func mcpBrowserSubtitle(language: AppLanguage) -> String {
+    switch language {
+    case .english:
+        "MCP configuration creates callable tools and stays separate from skills and other capabilities."
+    case .simplifiedChinese:
+        "MCP 配置会生成可调用工具，和 Skill / 能力分开查看。"
     }
 }
 
@@ -354,28 +404,23 @@ private struct ContextLayerSummary: View {
     }
 }
 
-private struct ContextItemCollectionView: View {
+private struct CapabilityGroupCollectionView: View {
     @EnvironmentObject private var store: AssetStore
     let title: String
     let subtitle: String
     let systemImage: String
     let tint: Color
-    let items: [ContextCatalogItem]
-    let groupTitle: (ContextCatalogItem) -> String
-    let groupRank: (ContextCatalogItem) -> Int
-    var showsSkillVisibilityControl = false
+    let sections: [ContextCapabilitySection]
+    let tips: [OfficialDocTip]
+    let showsBundledSkillToggle: Bool
+    @Binding var expandedGroupIDs: Set<ContextCapabilityGroup.ID>
 
-    private var groups: [(String, [ContextCatalogItem])] {
-        Dictionary(grouping: items, by: groupTitle)
-            .map { ($0.key, $0.value.sorted(by: itemTitleSort)) }
-            .sorted { left, right in
-                let leftRank = left.1.map(groupRank).min() ?? Int.max
-                let rightRank = right.1.map(groupRank).min() ?? Int.max
-                if leftRank != rightRank {
-                    return leftRank < rightRank
-                }
-                return left.0.localizedStandardCompare(right.0) == .orderedAscending
-            }
+    private var isSearching: Bool {
+        !store.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var effectiveExpandedGroupIDs: Set<ContextCapabilityGroup.ID> {
+        isSearching ? Set(sections.flatMap { $0.groups.map(\.id) }) : expandedGroupIDs
     }
 
     var body: some View {
@@ -388,18 +433,13 @@ private struct ContextItemCollectionView: View {
                     tint: tint
                 )
 
-                if showsSkillVisibilityControl {
-                    OfficialDocTipsPanel(
-                        tips: OfficialDocTips.tips(
-                            for: .capabilities,
-                            language: store.appLanguage
-                        )
-                    )
+                OfficialDocTipsPanel(tips: tips)
 
+                if showsBundledSkillToggle {
                     SkillVisibilityControl()
                 }
 
-                if groups.isEmpty {
+                if sections.isEmpty {
                     EmptyStateView(
                         title: store.t(.noContextItems),
                         message: store.t(.contextDetailPlaceholderMessage),
@@ -407,13 +447,265 @@ private struct ContextItemCollectionView: View {
                     )
                     .frame(minHeight: 260)
                 } else {
-                    LazyVStack(alignment: .leading, spacing: 12) {
-                        ForEach(groups, id: \.0) { group in
-                            ContextItemGroup(title: group.0, items: group.1)
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        ForEach(sections) { section in
+                            CapabilityCategorySectionView(
+                                section: section,
+                                expandedGroupIDs: effectiveExpandedGroupIDs,
+                                toggle: toggle
+                            )
                         }
                     }
                 }
             }
+        }
+    }
+
+    private func toggle(_ group: ContextCapabilityGroup) {
+        if expandedGroupIDs.contains(group.id) {
+            expandedGroupIDs.remove(group.id)
+        } else {
+            expandedGroupIDs.insert(group.id)
+        }
+    }
+}
+
+private struct CapabilityCategorySectionView: View {
+    @EnvironmentObject private var store: AssetStore
+    let section: ContextCapabilitySection
+    let expandedGroupIDs: Set<ContextCapabilityGroup.ID>
+    let toggle: (ContextCapabilityGroup) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: capabilityCategoryIcon(section.category))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(capabilityCategoryTint(section.category))
+                    .frame(width: 24, height: 24)
+                    .background(
+                        capabilityCategoryTint(section.category).opacity(0.12),
+                        in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    )
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(alignment: .firstTextBaseline, spacing: 7) {
+                        Text(capabilityCategoryTitle(section.category, language: store.appLanguage))
+                            .font(.headline)
+
+                        CountBadge(count: section.itemCount, tint: capabilityCategoryTint(section.category))
+
+                        if section.category.isLowPriority {
+                            BadgeView(
+                                text: lowPriorityLabel(language: store.appLanguage),
+                                tint: .secondary
+                            )
+                        }
+                    }
+
+                    Text(capabilityCategoryDescription(section.category, language: store.appLanguage))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            LazyVStack(alignment: .leading, spacing: 10) {
+                ForEach(section.groups) { group in
+                    CapabilityGroupRow(
+                        group: group,
+                        isExpanded: expandedGroupIDs.contains(group.id),
+                        toggle: {
+                            toggle(group)
+                        }
+                    )
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(section.category.isLowPriority ? 0.58 : 1), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(section.category.isLowPriority ? 0.32 : 0.45))
+        }
+    }
+}
+
+private struct CapabilityGroupRow: View {
+    @EnvironmentObject private var store: AssetStore
+    @State private var visibleItemLimit = capabilityGroupVisibleBatchSize
+    let group: ContextCapabilityGroup
+    let isExpanded: Bool
+    let toggle: () -> Void
+
+    private var visibleItems: ArraySlice<ContextCatalogItem> {
+        group.items.prefix(visibleItemLimit)
+    }
+
+    private var hasMoreItems: Bool {
+        group.items.count > visibleItemLimit
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Button(action: toggle) {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 18, height: 20)
+
+                    Image(systemName: assetKindIcon(group.primaryKind))
+                        .foregroundStyle(capabilityKindTint(group.primaryKind))
+                        .frame(width: 20, height: 20)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .firstTextBaseline, spacing: 7) {
+                            Text(group.title)
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+
+                            CountBadge(count: group.items.count, tint: capabilityKindTint(group.primaryKind))
+                        }
+
+                        Text(capabilityGroupSummary(group, language: store.appLanguage))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 10)
+
+                    HStack(spacing: 5) {
+                        if let origin = group.origin {
+                            BadgeView(
+                                text: L10n.skillInstallOrigin(origin, language: store.appLanguage),
+                                tint: skillInstallOriginTint(origin)
+                            )
+                        }
+
+                        ForEach(group.owners.prefix(2), id: \.self) { owner in
+                            BadgeView(text: ownerLabel(owner), tint: ownerTint(owner))
+                        }
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.top, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            HStack(spacing: 8) {
+                Color.clear.frame(width: 48, height: 1)
+                PathPreviewLink(
+                    path: group.rootPath,
+                    displayPath: displayPath(group.rootPath),
+                    font: .caption2.monospaced(),
+                    foregroundColor: .secondary.opacity(0.72),
+                    language: store.appLanguage
+                )
+            }
+            .padding(.horizontal, 10)
+
+            CapabilityGroupingBasisLine(basis: group.groupingBasis)
+                .padding(.horizontal, 10)
+
+            if isExpanded {
+                Divider()
+                    .padding(.horizontal, 10)
+
+                LazyVStack(spacing: 6) {
+                    ForEach(visibleItems) { item in
+                        ContextItemRow(item: item)
+                    }
+                }
+                .padding(.horizontal, 8)
+
+                if hasMoreItems {
+                    Button {
+                        visibleItemLimit += capabilityGroupVisibleBatchSize
+                    } label: {
+                        Label(
+                            String(
+                                format: store.t(.showingItems),
+                                min(visibleItemLimit, group.items.count),
+                                group.items.count
+                            ),
+                            systemImage: "chevron.down"
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .padding(.horizontal, 8)
+                }
+            }
+        }
+        .onChange(of: group.id) { _, _ in
+            visibleItemLimit = capabilityGroupVisibleBatchSize
+        }
+        .onChange(of: group.items.count) { _, _ in
+            visibleItemLimit = capabilityGroupVisibleBatchSize
+        }
+        .onChange(of: isExpanded) { _, expanded in
+            if !expanded {
+                visibleItemLimit = capabilityGroupVisibleBatchSize
+            }
+        }
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.48))
+        }
+    }
+
+    private func ownerLabel(_ owner: AgentOwner) -> String {
+        owner == .claude ? store.t(.claudeCode) : L10n.agentOwner(owner, language: store.appLanguage)
+    }
+}
+
+private struct CapabilityGroupingBasisLine: View {
+    @EnvironmentObject private var store: AssetStore
+    let basis: ContextCapabilityGroupingBasis
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: "info.circle")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+
+            Text(groupingBasisPrefix(language: store.appLanguage))
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
+
+            Text(groupingBasisTitle(basis.kind, language: store.appLanguage))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+
+            if basis.kind == .sameNameSkillCopies {
+                BadgeView(text: viewOnlyGroupingLabel(language: store.appLanguage), tint: .secondary)
+            }
+
+            if let sourceURL = basis.sourceURL,
+               let url = URL(string: sourceURL) {
+                Link(groupingBasisSourceLabel(language: store.appLanguage), destination: url)
+                    .font(.caption2.weight(.medium))
+                    .help(sourceHelpText(basis: basis, language: store.appLanguage))
+            }
+
+            if let sourceLocation = basis.sourceLocation {
+                Text(sourceLocation)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
         }
     }
 }
@@ -445,8 +737,16 @@ private struct MemoryTypeCollectionView: View {
         groups.first { $0.0 == selectedType }?.1 ?? []
     }
 
-    private var visibleItems: ArraySlice<ContextCatalogItem> {
-        selectedItems.prefix(visibleItemLimit)
+    private var presenceGroups: [MemoryPresenceGroup] {
+        MemoryMigrationPlanner().groups(items: items)
+    }
+
+    private var selectedPresenceGroups: [MemoryPresenceGroup] {
+        MemoryMigrationPlanner().groups(items: selectedItems)
+    }
+
+    private var visiblePresenceGroups: ArraySlice<MemoryPresenceGroup> {
+        selectedPresenceGroups.prefix(visibleItemLimit)
     }
 
     private var availabilitySignature: String {
@@ -470,6 +770,16 @@ private struct MemoryTypeCollectionView: View {
                     )
                 )
 
+                MemoryMigrationOverview(groups: presenceGroups)
+
+                if let error = store.managementError {
+                    ManagementErrorBanner(message: error)
+                }
+
+                if let memoryMigrationStatus = store.memoryMigrationStatus {
+                    MemoryMigrationStatusBanner(message: memoryMigrationStatus)
+                }
+
                 MemoryTypeNavigator(
                     groups: groups,
                     selectedType: $selectedType
@@ -478,9 +788,10 @@ private struct MemoryTypeCollectionView: View {
                 FocusedMemoryTypeSection(
                     type: selectedType,
                     items: selectedItems,
-                    visibleItems: visibleItems,
-                    hasMoreItems: selectedItems.count > visibleItemLimit,
-                    visibleCount: min(selectedItems.count, visibleItemLimit),
+                    groups: selectedPresenceGroups,
+                    visibleGroups: visiblePresenceGroups,
+                    hasMoreItems: selectedPresenceGroups.count > visibleItemLimit,
+                    visibleCount: min(selectedPresenceGroups.count, visibleItemLimit),
                     showMore: {
                         visibleItemLimit += memoryTypeVisibleBatchSize
                     }
@@ -616,11 +927,304 @@ private struct MemoryTypeTile: View {
     }
 }
 
+private struct MemoryMigrationOverview: View {
+    @EnvironmentObject private var store: AssetStore
+    let groups: [MemoryPresenceGroup]
+
+    private var claudeOnlyCount: Int {
+        groups.filter { $0.status == .claudeOnly }.count
+    }
+
+    private var codexOnlyCount: Int {
+        groups.filter { $0.status == .codexOnly }.count
+    }
+
+    private var bothSidesCount: Int {
+        groups.filter { $0.status == .bothSides }.count
+    }
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 160), spacing: 10, alignment: .top)
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "arrow.left.arrow.right")
+                    .foregroundStyle(.indigo)
+                    .frame(width: 24, height: 24)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(memoryMigrationOverviewTitle(language: store.appLanguage))
+                        .font(.headline)
+                    Text(memoryMigrationOverviewDescription(language: store.appLanguage))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 10)
+            }
+
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
+                MemoryMigrationMetric(
+                    title: memoryPresenceStatusTitle(.claudeOnly, language: store.appLanguage),
+                    count: claudeOnlyCount,
+                    systemImage: "terminal",
+                    tint: .orange
+                )
+                MemoryMigrationMetric(
+                    title: memoryPresenceStatusTitle(.codexOnly, language: store.appLanguage),
+                    count: codexOnlyCount,
+                    systemImage: "scope",
+                    tint: .blue
+                )
+                MemoryMigrationMetric(
+                    title: memoryPresenceStatusTitle(.bothSides, language: store.appLanguage),
+                    count: bothSidesCount,
+                    systemImage: "checkmark.seal",
+                    tint: .green
+                )
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.45))
+        }
+    }
+}
+
+private struct MemoryMigrationMetric: View {
+    let title: String
+    let count: Int
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 9) {
+            Image(systemName: systemImage)
+                .foregroundStyle(tint)
+                .frame(width: 22, height: 22)
+                .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption.weight(.medium))
+                    .lineLimit(1)
+                Text("\(count)")
+                    .font(.title3.weight(.semibold))
+                    .monospacedDigit()
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.25))
+        }
+    }
+}
+
+private struct MemoryMigrationStatusBanner: View {
+    let message: String
+
+    var body: some View {
+        Label(message, systemImage: "checkmark.circle")
+            .font(.callout)
+            .foregroundStyle(.green)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(.green.opacity(0.22))
+            }
+    }
+}
+
+private struct MemoryPresenceGroupRow: View {
+    @EnvironmentObject private var store: AssetStore
+    @State private var presentedMigrationDraft: MemoryMigrationDraft?
+    @State private var isHovering = false
+    let group: MemoryPresenceGroup
+
+    private var isSelected: Bool {
+        guard let selectedAssetID = store.selectedAssetID else { return false }
+        return group.items.contains { $0.asset.id == selectedAssetID }
+    }
+
+    private var migrationDraft: MemoryMigrationDraft? {
+        if let claudeItem = group.migratableClaudeItem,
+           let plan = store.memoryMigrationPlan(for: claudeItem.asset, to: .codex) {
+            return MemoryMigrationDraft(
+                asset: claudeItem.asset,
+                target: .codex,
+                plan: plan,
+                existingTargetPath: store.existingMemoryTargetPath(
+                    for: claudeItem.asset,
+                    to: .codex,
+                    plannedDestinationPath: plan.destinationPath
+                )
+            )
+        }
+
+        if let codexItem = group.migratableCodexItem,
+           let plan = store.memoryMigrationPlan(for: codexItem.asset, to: .claude) {
+            return MemoryMigrationDraft(
+                asset: codexItem.asset,
+                target: .claude,
+                plan: plan,
+                existingTargetPath: store.existingMemoryTargetPath(
+                    for: codexItem.asset,
+                    to: .claude,
+                    plannedDestinationPath: plan.destinationPath
+                )
+            )
+        }
+
+        return nil
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "brain.head.profile")
+                    .foregroundStyle(.indigo)
+                    .frame(width: 18)
+                    .padding(.top, 2)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .top, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(group.title)
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .lineLimit(2)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .layoutPriority(1)
+
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                BadgeView(
+                                    text: memoryPresenceStatusTitle(group.status, language: store.appLanguage),
+                                    tint: memoryPresenceStatusTint(group.status)
+                                )
+
+                                if group.items.count > 1 {
+                                    CountBadge(count: group.items.count, tint: .secondary)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        if let migrationDraft {
+                            MemoryMigrationCompactButton(
+                                draft: migrationDraft,
+                                open: { draft in
+                                    presentedMigrationDraft = draft
+                                }
+                            )
+                            .padding(.top, -2)
+                            .opacity(isSelected || isHovering ? 1 : 0.82)
+                        }
+                    }
+
+                    if let summary = group.primaryItem?.asset.summary,
+                       !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(summary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+
+                    MemoryPresenceSourceLine(group: group)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 9)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                store.focusAsset(path: group.primaryItem?.asset.path)
+            }
+            .accessibilityAddTraits(.isButton)
+        }
+        .padding(.bottom, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            isSelected ? Color.accentColor.opacity(0.12) : Color(nsColor: .windowBackgroundColor),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(isSelected ? Color.accentColor.opacity(0.55) : Color(nsColor: .separatorColor).opacity(0.38))
+        }
+        .sheet(item: $presentedMigrationDraft) { draft in
+            MemoryMigrationDetailSheet(draft: draft)
+        }
+        .onHover { hovering in
+            isHovering = hovering
+        }
+    }
+}
+
+private struct MemoryPresenceSourceLine: View {
+    @EnvironmentObject private var store: AssetStore
+    let group: MemoryPresenceGroup
+
+    var body: some View {
+        Group {
+            if let claudeItem = group.claudeItems.first {
+                MemoryPresencePathRow(title: store.t(.claudeCode), tint: .orange, item: claudeItem)
+            } else if let codexItem = group.codexItems.first {
+                MemoryPresencePathRow(title: "Codex", tint: .blue, item: codexItem)
+            } else if let sharedItem = group.sharedItems.first {
+                MemoryPresencePathRow(
+                    title: memorySharedLocationTitle(language: store.appLanguage),
+                    tint: .green,
+                    item: sharedItem
+                )
+            }
+        }
+    }
+}
+
+private struct MemoryPresencePathRow: View {
+    @EnvironmentObject private var store: AssetStore
+    let title: String
+    let tint: Color
+    let item: ContextCatalogItem
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 7) {
+            BadgeView(text: title, tint: tint)
+            PathPreviewLink(
+                path: item.asset.path,
+                displayPath: item.asset.displayPath,
+                font: .caption2.monospaced(),
+                foregroundColor: .secondary.opacity(0.7),
+                lineLimit: 2,
+                language: store.appLanguage
+            )
+            .fixedSize(horizontal: false, vertical: true)
+            .layoutPriority(1)
+        }
+    }
+}
+
 private struct FocusedMemoryTypeSection: View {
     @EnvironmentObject private var store: AssetStore
     let type: AgentMemoryType
     let items: [ContextCatalogItem]
-    let visibleItems: ArraySlice<ContextCatalogItem>
+    let groups: [MemoryPresenceGroup]
+    let visibleGroups: ArraySlice<MemoryPresenceGroup>
     let hasMoreItems: Bool
     let visibleCount: Int
     let showMore: () -> Void
@@ -652,15 +1256,15 @@ private struct FocusedMemoryTypeSection: View {
                     .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
             } else {
                 HStack {
-                    Text(String(format: store.t(.showingItems), visibleCount, items.count))
+                    Text(String(format: store.t(.showingItems), visibleCount, groups.count))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
 
                 LazyVStack(spacing: 6) {
-                    ForEach(visibleItems) { item in
-                        ContextItemRow(item: item)
+                    ForEach(visibleGroups) { group in
+                        MemoryPresenceGroupRow(group: group)
                     }
                 }
 
@@ -747,35 +1351,6 @@ private struct SkillVisibilityControl: View {
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(Color(nsColor: .separatorColor).opacity(0.45))
-        }
-    }
-}
-
-private struct ContextItemGroup: View {
-    let title: String
-    let items: [ContextCatalogItem]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(title)
-                    .font(.headline)
-                Spacer()
-                CountBadge(count: items.count, tint: .secondary)
-            }
-
-            VStack(spacing: 6) {
-                ForEach(items) { item in
-                    ContextItemRow(item: item)
-                }
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color(nsColor: .separatorColor).opacity(0.5))
         }
     }
 }
@@ -1064,22 +1639,218 @@ private func assetKindSortIndex(_ kind: AssetKind) -> Int {
     }
 }
 
-private func capabilityGroupTitle(_ item: ContextCatalogItem, language: AppLanguage) -> String {
-    let kind = L10n.assetKind(item.asset.kind, language: language)
-    guard item.asset.kind == .skill, let origin = item.loadRoute.skillInstallOrigin else {
-        return kind
+private func capabilityCategoryTitle(_ category: ContextCapabilityCategory, language: AppLanguage) -> String {
+    switch (category, language) {
+    case (.userSkills, .simplifiedChinese): "用户导入的 Skill"
+    case (.mcpTools, .simplifiedChinese): "MCP / 工具配置"
+    case (.localCapabilities, .simplifiedChinese): "本地命令与配置"
+    case (.officialCapabilities, .simplifiedChinese): "官方 / 预置能力"
+    case (.otherCapabilities, .simplifiedChinese): "其他能力"
+    case (.userSkills, _): "User-Imported Skills"
+    case (.mcpTools, _): "MCP / Tool Configuration"
+    case (.localCapabilities, _): "Local Commands and Config"
+    case (.officialCapabilities, _): "Official / Preset Capabilities"
+    case (.otherCapabilities, _): "Other Capabilities"
     }
-
-    return "\(kind) · \(L10n.skillInstallOrigin(origin, language: language))"
 }
 
-private func capabilityGroupRank(_ item: ContextCatalogItem) -> Int {
-    let baseRank = assetKindSortIndex(item.asset.kind) * 10
-    guard item.asset.kind == .skill, let origin = item.loadRoute.skillInstallOrigin else {
-        return baseRank + 9
+private func capabilityCategoryDescription(_ category: ContextCapabilityCategory, language: AppLanguage) -> String {
+    switch (category, language) {
+    case (.userSkills, .simplifiedChinese):
+        "优先处理用户安装、迁移或项目本地维护的 Skill。"
+    case (.mcpTools, .simplifiedChinese):
+        "MCP 配置生成工具注册，不和 Skill 混在同一个列表里。"
+    case (.localCapabilities, .simplifiedChinese):
+        "用户侧命令、插件、脚本和配置，通常用于运行时或工作流接入。"
+    case (.officialCapabilities, .simplifiedChinese):
+        "来自 Figma、Vercel、Netlify、Build macOS Apps 等官方或精选插件包，默认作为低优先级基线。"
+    case (.otherCapabilities, .simplifiedChinese):
+        "暂时无法归入主要处理队列的能力文件，先保留为待确认。"
+    case (.userSkills, _):
+        "Prioritize skills the user installed, migrated, or maintains locally."
+    case (.mcpTools, _):
+        "MCP configuration creates tool registrations and stays separate from skills."
+    case (.localCapabilities, _):
+        "User-side commands, plugins, scripts, and config for runtime or workflow wiring."
+    case (.officialCapabilities, _):
+        "Official or curated bundles such as Figma, Vercel, Netlify, and Build macOS Apps are treated as low-priority baseline."
+    case (.otherCapabilities, _):
+        "Capability files that do not fit the main review queues yet."
     }
+}
 
-    return baseRank + origin.sortIndex
+private func capabilityCategoryIcon(_ category: ContextCapabilityCategory) -> String {
+    switch category {
+    case .userSkills: "wand.and.stars"
+    case .mcpTools: "point.3.connected.trianglepath.dotted"
+    case .localCapabilities: "slider.horizontal.3"
+    case .officialCapabilities: "building.columns"
+    case .otherCapabilities: "tray.full"
+    }
+}
+
+private func capabilityCategoryTint(_ category: ContextCapabilityCategory) -> Color {
+    switch category {
+    case .userSkills: .teal
+    case .mcpTools: .orange
+    case .localCapabilities: .blue
+    case .officialCapabilities: .secondary
+    case .otherCapabilities: .secondary
+    }
+}
+
+private func lowPriorityLabel(language: AppLanguage) -> String {
+    language == .simplifiedChinese ? "低优先级" : "Low Priority"
+}
+
+private func memoryMigrationOverviewTitle(language: AppLanguage) -> String {
+    switch language {
+    case .english:
+        "Memory availability"
+    case .simplifiedChinese:
+        "记忆在两边的存在情况"
+    }
+}
+
+private func memoryMigrationOverviewDescription(language: AppLanguage) -> String {
+    switch language {
+    case .english:
+        "Check whether a memory exists in Claude Code, Codex, or both before copying one-sided memories to the other side."
+    case .simplifiedChinese:
+        "先看每条记忆是在 Claude Code、Codex，还是两边都有；只在一边的记忆可以再复制到另一边。"
+    }
+}
+
+private func memoryPresenceStatusTitle(_ status: MemoryPresenceStatus, language: AppLanguage) -> String {
+    switch (status, language) {
+    case (.claudeOnly, .simplifiedChinese):
+        "仅 Claude Code"
+    case (.codexOnly, .simplifiedChinese):
+        "仅 Codex"
+    case (.bothSides, .simplifiedChinese):
+        "两边都有"
+    case (.sharedOnly, .simplifiedChinese):
+        "共享来源"
+    case (.unknown, .simplifiedChinese):
+        "未知来源"
+    case (.claudeOnly, _):
+        "Claude Code only"
+    case (.codexOnly, _):
+        "Codex only"
+    case (.bothSides, _):
+        "Both sides"
+    case (.sharedOnly, _):
+        "Shared source"
+    case (.unknown, _):
+        "Unknown source"
+    }
+}
+
+private func memoryPresenceStatusTint(_ status: MemoryPresenceStatus) -> Color {
+    switch status {
+    case .claudeOnly:
+        .orange
+    case .codexOnly:
+        .blue
+    case .bothSides:
+        .green
+    case .sharedOnly:
+        .teal
+    case .unknown:
+        .secondary
+    }
+}
+
+private func memorySharedLocationTitle(language: AppLanguage) -> String {
+    switch language {
+    case .english:
+        "Shared"
+    case .simplifiedChinese:
+        "共享"
+    }
+}
+
+private func groupingBasisPrefix(language: AppLanguage) -> String {
+    language == .simplifiedChinese ? "归组依据：" : "Basis:"
+}
+
+private func groupingBasisTitle(_ kind: ContextCapabilityGroupingBasisKind, language: AppLanguage) -> String {
+    switch (kind, language) {
+    case (.skillDirectory, .simplifiedChinese):
+        "单个 SKILL.md 目录"
+    case (.pluginBundle, .simplifiedChinese):
+        "同一插件包内的 skills/ 目录"
+    case (.repositorySkillDirectory, .simplifiedChinese):
+        "同一仓库型 skills/<repo>/ 目录"
+    case (.sameNameSkillCopies, .simplifiedChinese):
+        "同名 SKILL.md 副本聚合展示，运行时不合并"
+    case (.skillNameFamily, .simplifiedChinese):
+        "相同主题命名的 flat skills"
+    case (.mcpConfiguration, .simplifiedChinese):
+        "MCP 配置文件"
+    case (.parentDirectory, .simplifiedChinese):
+        "同一父目录"
+    case (.skillDirectory, _):
+        "Single SKILL.md directory"
+    case (.pluginBundle, _):
+        "Same plugin skills/ directory"
+    case (.repositorySkillDirectory, _):
+        "Same repository-style skills/<repo>/ directory"
+    case (.sameNameSkillCopies, _):
+        "Same-name SKILL.md copies grouped for display only"
+    case (.skillNameFamily, _):
+        "Flat skills with the same topic naming"
+    case (.mcpConfiguration, _):
+        "MCP configuration file"
+    case (.parentDirectory, _):
+        "Same parent directory"
+    }
+}
+
+private func groupingBasisSourceLabel(language: AppLanguage) -> String {
+    language == .simplifiedChinese ? "官方依据" : "Source"
+}
+
+private func viewOnlyGroupingLabel(language: AppLanguage) -> String {
+    language == .simplifiedChinese ? "仅整理视图" : "View only"
+}
+
+private func sourceHelpText(basis: ContextCapabilityGroupingBasis, language: AppLanguage) -> String {
+    guard let sourceLocation = basis.sourceLocation else {
+        return groupingBasisSourceLabel(language: language)
+    }
+    return "\(groupingBasisSourceLabel(language: language)): \(sourceLocation)"
+}
+
+private func capabilityGroupSummary(_ group: ContextCapabilityGroup, language: AppLanguage) -> String {
+    group.kindCounts
+        .sorted { left, right in
+            if assetKindSortIndex(left.key) != assetKindSortIndex(right.key) {
+                return assetKindSortIndex(left.key) < assetKindSortIndex(right.key)
+            }
+            return left.key.rawValue < right.key.rawValue
+        }
+        .map { "\($0.value) \(L10n.assetKind($0.key, language: language))" }
+        .joined(separator: " · ")
+}
+
+private func capabilityKindTint(_ kind: AssetKind) -> Color {
+    switch kind {
+    case .skill: .teal
+    case .command: .blue
+    case .mcp, .config: .orange
+    case .plugin: .purple
+    case .script: .green
+    case .rule: .red
+    case .instruction: .indigo
+    case .memory: .indigo
+    case .session: .orange
+    case .unknown: .secondary
+    }
+}
+
+private func displayPath(_ path: String) -> String {
+    path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
 }
 
 private func contextLayerIcon(_ layer: AgentContextLayer) -> String {

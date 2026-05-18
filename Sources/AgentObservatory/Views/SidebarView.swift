@@ -37,10 +37,19 @@ struct SidebarView: View {
                 SidebarFilterRow(
                     title: store.t(.capabilities),
                     systemImage: "wand.and.stars",
-                    count: store.visibleCapabilityItems.count,
+                    count: store.visibleNonMCPCapabilityItems.count,
                     isSelected: store.selectedSection == .capabilities
                 ) {
                     store.showCapabilities()
+                }
+
+                SidebarFilterRow(
+                    title: "MCP",
+                    systemImage: "point.3.connected.trianglepath.dotted",
+                    count: store.visibleMCPItems.count,
+                    isSelected: store.selectedSection == .mcpTools
+                ) {
+                    store.showMCPTools()
                 }
 
                 SidebarFilterRow(

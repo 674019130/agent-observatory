@@ -55,6 +55,9 @@ struct InspectorView: View {
         switch selectedTab {
         case .overview:
             VStack(alignment: .leading, spacing: 18) {
+                if asset.kind == .memory {
+                    MemoryMigrationInspectorPanel(asset: asset)
+                }
                 SummaryPanel(asset: asset)
                 LoadRoutePanel(asset: asset)
                 MetadataPanel(asset: asset)
@@ -105,6 +108,7 @@ private enum InspectorTab: String, CaseIterable, Identifiable {
 
 private struct InspectorHeader: View {
     @EnvironmentObject private var store: AssetStore
+    @State private var isShowingHideSheet = false
     @State private var isShowingArchiveSheet = false
     @State private var archiveReason = ""
     let asset: AgentAsset
@@ -147,7 +151,7 @@ private struct InspectorHeader: View {
                 .buttonStyle(.bordered)
                 .help(store.t(.copyPath))
                 Button {
-                    store.hideAsset(asset)
+                    isShowingHideSheet = true
                 } label: {
                     Image(systemName: "eye.slash")
                         .compactHitTarget()
@@ -165,6 +169,18 @@ private struct InspectorHeader: View {
                 .tint(.orange)
                 .help(store.t(.archiveFile))
             }
+        }
+        .sheet(isPresented: $isShowingHideSheet) {
+            HideConfirmationSheet(
+                asset: asset,
+                onHide: {
+                    store.hideAsset(asset)
+                    isShowingHideSheet = false
+                },
+                onCancel: {
+                    isShowingHideSheet = false
+                }
+            )
         }
         .sheet(isPresented: $isShowingArchiveSheet) {
             ArchiveConfirmationSheet(
@@ -367,6 +383,7 @@ private struct MetadataPanel: View {
 
 private struct DiagnosticsPanel: View {
     @EnvironmentObject private var store: AssetStore
+    @State private var expandedFlagIDs: Set<AssetStatusFlag.ID> = []
     let asset: AgentAsset
 
     var body: some View {
@@ -377,16 +394,27 @@ private struct DiagnosticsPanel: View {
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(asset.statusFlags) { flag in
-                        HStack(spacing: 8) {
-                            Image(systemName: icon(for: flag))
-                                .foregroundStyle(tint(for: flag))
-                                .frame(width: 18)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(L10n.statusFlag(flag, language: store.appLanguage))
-                                    .font(.callout.weight(.semibold))
-                                Text(L10n.statusFlagMessage(flag, language: store.appLanguage))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                        let explanation = AssetDiagnosticExplainer().explanation(
+                            for: flag,
+                            asset: asset,
+                            allAssets: store.assets,
+                            language: store.appLanguage
+                        )
+                        VStack(alignment: .leading, spacing: 7) {
+                            if isExpandable(flag) {
+                                Button {
+                                    toggle(flag)
+                                } label: {
+                                    diagnosticHeader(flag: flag, isExpanded: expandedFlagIDs.contains(flag.id), showsChevron: true)
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                diagnosticHeader(flag: flag, isExpanded: false, showsChevron: false)
+                            }
+
+                            if expandedFlagIDs.contains(flag.id) {
+                                DiagnosticExplanationView(explanation: explanation)
+                                    .padding(.leading, 26)
                             }
                         }
                     }
@@ -416,6 +444,93 @@ private struct DiagnosticsPanel: View {
         }
     }
 
+    private func isExpandable(_ flag: AssetStatusFlag) -> Bool {
+        flag == .duplicate || flag == .stalePath
+    }
+
+    private func toggle(_ flag: AssetStatusFlag) {
+        if expandedFlagIDs.contains(flag.id) {
+            expandedFlagIDs.remove(flag.id)
+        } else {
+            expandedFlagIDs.insert(flag.id)
+        }
+    }
+
+    private func diagnosticHeader(flag: AssetStatusFlag, isExpanded: Bool, showsChevron: Bool) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: icon(for: flag))
+                .foregroundStyle(tint(for: flag))
+                .frame(width: 18)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L10n.statusFlag(flag, language: store.appLanguage))
+                    .font(.callout.weight(.semibold))
+                Text(L10n.statusFlagMessage(flag, language: store.appLanguage))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 8)
+
+            if showsChevron {
+                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 14, height: 18)
+            }
+        }
+        .contentShape(Rectangle())
+    }
+}
+
+private struct DiagnosticExplanationView: View {
+    @EnvironmentObject private var store: AssetStore
+    let explanation: AssetDiagnosticExplanation
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(explanation.summary)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if !explanation.detailRows.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(explanation.detailRows) { row in
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(row.label)
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(.tertiary)
+                                .frame(width: 72, alignment: .leading)
+
+                            if let path = row.path {
+                                PathPreviewLink(
+                                    path: path,
+                                    displayPath: row.value,
+                                    font: .caption2.monospaced(),
+                                    foregroundColor: .secondary,
+                                    language: store.appLanguage
+                                )
+                            } else {
+                                Text(row.value)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.72), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.38))
+        }
+    }
 }
 
 private struct DiffPanel: View {

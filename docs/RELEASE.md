@@ -45,7 +45,12 @@ that the process is running.
 
 Use [SMOKE_CHECKLIST.md](SMOKE_CHECKLIST.md) for the manual release checks that
 cover Settings -> Sources, context browser selection, path previews, Finder
-opening, OpenAI explanation, and release artifact metadata.
+opening, asset filter layout, copy and migration previews, OpenAI explanation,
+and release artifact metadata.
+
+If the release changes a primary screen, refresh the sanitized README screenshots
+under `docs/assets/` before publishing. Do not use a live screenshot that exposes
+real local paths, private repo names, browser content, or menu bar state.
 
 For changes that affect source discovery, confirm Settings -> Sources still
 shows the expected Project Folder and source list. The Project Folder controls

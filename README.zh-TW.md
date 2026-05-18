@@ -44,9 +44,13 @@ memory、哪個 skill 會搶答、哪些 command 還引用舊路徑時，Agent O
 
 以下圖片使用脫敏範例資料和虛構路徑，不會暴露本機真實檔案。
 
-| 上下文觀察台 | 觸發雷達 | AI 整理器 |
-|---|---|---|
-| [![上下文觀察台範例](docs/assets/sample-overview.png)](docs/assets/sample-overview.png) | [![觸發雷達範例](docs/assets/sample-trigger-radar.png)](docs/assets/sample-trigger-radar.png) | [![AI 整理器範例](docs/assets/sample-ai-organizer.png)](docs/assets/sample-ai-organizer.png) |
+| 上下文觀察台 | 資產詳情 |
+|---|---|
+| [![上下文觀察台範例](docs/assets/sample-overview.png)](docs/assets/sample-overview.png) | [![資產詳情範例](docs/assets/sample-assets.png)](docs/assets/sample-assets.png) |
+
+| 觸發雷達 | AI 整理器 |
+|---|---|
+| [![觸發雷達範例](docs/assets/sample-trigger-radar.png)](docs/assets/sample-trigger-radar.png) | [![AI 整理器範例](docs/assets/sample-ai-organizer.png)](docs/assets/sample-ai-organizer.png) |
 
 ## 功能
 
@@ -60,7 +64,13 @@ memory、哪個 skill 會搶答、哪些 command 還引用舊路徑時，Agent O
 - **Claude Code 與 Codex 的上下文瀏覽器**
   並排查看 memories、capabilities 和上下文組裝步驟，弄清哪些檔案會成為
   prompt material、註冊表、輔助檔案或歷史記錄。介面中的小 Tips 會連到
-  OpenAI 和 Claude Code 官方文件位置。
+  OpenAI 和 Claude Code 官方文件位置。大量 capability 會按安裝包或 repo 分組並
+  預設折疊；MCP 另外成區，避免 skill 和工具伺服器混在一起。
+
+- **Memory 遷移預覽**
+  先展示某條 memory 存在於 Claude Code、Codex，還是兩邊都有，再決定是否複製到
+  另一套 agent system。執行前會檢查目標檔案是否已存在，明確顯示會建立、跳過，
+  還是需要人工確認。
 
 - **Skill 觸發雷達**
   識別使用者、專案、內建和外掛 skills 之間的意圖重疊，避免錯誤能力先回應。
@@ -80,6 +90,7 @@ memory、哪個 skill 會搶答、哪些 command 還引用舊路徑時，Agent O
 
 - **軟管理工具**
   可以把噪音檔案從主索引隱藏，之後再復原；也可以歸檔到受管理位置，並支援復原。
+  複製和遷移動作會進入預覽彈窗，讓來源檔案、目標檔案和覆蓋狀態在寫入前可見。
 
 - **雙語介面**
   可在 Settings 中切換 English 和簡體中文。
@@ -199,7 +210,8 @@ dist/AgentObservatory.app
 工作路線圖見 [docs/ROADMAP.md](docs/ROADMAP.md)。目前方向是：
 
 - 保持 ad-hoc release packaging，並記錄 macOS 安全提示的取捨。
-- 為 context browser、path preview、Finder 打開、OpenAI explanation 選擇流程補回歸覆蓋。
+- 持續覆蓋 context browser 選擇、樹懶載入、資產篩選版面、path preview、Finder 打開、
+  複製預覽和 OpenAI explanation 選擇流程。
 - 建立 memory、capability、MCP、project instruction 之間的依賴圖視覺化。
 - 為 hide/archive 決策加入 management state import/export。
 - 等 Claude Code 和 Codex 模型穩定後，加入更多 agent runtime 的 source presets。

@@ -61,6 +61,7 @@ struct PathPreviewLink: View {
     var revealAction: (String) -> Void = FinderPathOpener.reveal
 
     @State private var isShowingPreview = false
+    @State private var showPreviewTask: Task<Void, Never>?
     @State private var hidePreviewTask: Task<Void, Never>?
 
     private var visiblePath: String {
@@ -68,27 +69,25 @@ struct PathPreviewLink: View {
     }
 
     var body: some View {
-        Button {
-            revealPath()
-        } label: {
-            HStack(spacing: 4) {
-                Text(visiblePath)
-                    .font(font)
-                    .foregroundStyle(foregroundColor)
-                    .lineLimit(lineLimit)
-                    .truncationMode(.middle)
-                    .underline(isShowingPreview, color: foregroundColor.opacity(0.55))
+        HStack(spacing: 4) {
+            Text(visiblePath)
+                .font(font)
+                .foregroundStyle(foregroundColor)
+                .lineLimit(lineLimit)
+                .truncationMode(.middle)
+                .underline(isShowingPreview, color: foregroundColor.opacity(0.55))
 
-                Image(systemName: "arrow.up.forward.square")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .opacity(isShowingPreview ? 1 : 0)
-            }
-            .contentShape(Rectangle())
+            Image(systemName: "arrow.up.forward.square")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .opacity(isShowingPreview ? 1 : 0)
         }
-        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            revealPath()
+        }
         .onHover { hovering in
-            hovering ? showPreview() : schedulePreviewHide()
+            hovering ? schedulePreviewShow() : schedulePreviewHide()
         }
         .popover(isPresented: $isShowingPreview, arrowEdge: .bottom) {
             PathPreviewPopover(
@@ -96,25 +95,46 @@ struct PathPreviewLink: View {
                 language: language,
                 onReveal: revealPath,
                 onHoverChange: { hovering in
-                    hovering ? showPreview() : schedulePreviewHide()
+                    hovering ? showPreviewImmediately() : schedulePreviewHide()
                 }
             )
         }
         .help(path)
+        .onDisappear {
+            cancelPreviewTasks()
+            isShowingPreview = false
+        }
     }
 
     private func revealPath() {
-        hidePreviewTask?.cancel()
+        cancelPreviewTasks()
         isShowingPreview = false
         revealAction(path)
     }
 
-    private func showPreview() {
+    private func schedulePreviewShow() {
+        hidePreviewTask?.cancel()
+        showPreviewTask?.cancel()
+        showPreviewTask = Task {
+            do {
+                try await Task.sleep(nanoseconds: 450_000_000)
+            } catch {
+                return
+            }
+            await MainActor.run {
+                isShowingPreview = true
+            }
+        }
+    }
+
+    private func showPreviewImmediately() {
+        showPreviewTask?.cancel()
         hidePreviewTask?.cancel()
         isShowingPreview = true
     }
 
     private func schedulePreviewHide() {
+        showPreviewTask?.cancel()
         hidePreviewTask?.cancel()
         hidePreviewTask = Task {
             do {
@@ -126,6 +146,11 @@ struct PathPreviewLink: View {
                 isShowingPreview = false
             }
         }
+    }
+
+    private func cancelPreviewTasks() {
+        showPreviewTask?.cancel()
+        hidePreviewTask?.cancel()
     }
 }
 
@@ -377,5 +402,77 @@ struct ArchiveConfirmationSheet: View {
         }
         .padding(22)
         .frame(width: 440)
+    }
+}
+
+struct HideConfirmationSheet: View {
+    @EnvironmentObject private var store: AssetStore
+    let asset: AgentAsset
+    let onHide: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "eye.slash")
+                    .font(.system(size: 28))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 34)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(hideSheetTitle(language: store.appLanguage))
+                        .font(.title3.weight(.semibold))
+                    Text(asset.title)
+                        .font(.callout.weight(.medium))
+                        .lineLimit(2)
+                    PathPreviewLink(
+                        path: asset.path,
+                        displayPath: asset.displayPath,
+                        font: .caption.monospaced(),
+                        foregroundColor: .secondary,
+                        lineLimit: 2,
+                        language: store.appLanguage
+                    )
+                }
+            }
+
+            Text(hideSheetMessage(language: store.appLanguage))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack {
+                Spacer()
+                Button(store.t(.cancel), action: onCancel)
+                    .keyboardShortcut(.cancelAction)
+                Button {
+                    onHide()
+                } label: {
+                    Label(store.t(.hideFromObservatory), systemImage: "eye.slash")
+                }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+                .tint(.gray)
+            }
+        }
+        .padding(22)
+        .frame(width: 460)
+    }
+}
+
+private func hideSheetTitle(language: AppLanguage) -> String {
+    switch language {
+    case .english:
+        "Hide this item?"
+    case .simplifiedChinese:
+        "隐藏这个项目？"
+    }
+}
+
+private func hideSheetMessage(language: AppLanguage) -> String {
+    switch language {
+    case .english:
+        "The file will stay on disk, but Agent Observatory will remove it from the normal review lists. You can restore hidden items from the Hidden Items view."
+    case .simplifiedChinese:
+        "文件仍会保留在磁盘上，但 Agent Observatory 会把它从常规审查列表里移走。之后可以在“隐藏项目”里恢复。"
     }
 }

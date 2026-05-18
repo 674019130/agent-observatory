@@ -25,6 +25,9 @@ discovery, or after touching the three-column selection flow.
 
 - [ ] Open Context Overview and select a group; the right pane should show the
       group inspector.
+- [ ] Expand a large capability package or repository group; child rows should
+      render only after expansion, and MCP entries should remain in the separate
+      MCP section.
 - [ ] Open Memories and click at least two different memory rows; the right pane
       title and path should change each time.
 - [ ] Search for a memory term, click a filtered memory row, then clear search;
@@ -34,6 +37,19 @@ discovery, or after touching the three-column selection flow.
       show that asset, not the first asset-table row.
 - [ ] Open Assembly and click a pipeline item; the right pane should switch to
       the selected item.
+
+## Assets And Management UI
+
+- [ ] Open All files at the narrowest supported window width; owner filters,
+      health filters, hidden-official indicator, and item count should not
+      overlap.
+- [ ] Open the filter menu; the menu should anchor to the filter button without
+      covering the owner selector.
+- [ ] Click a duplicate or stale-path diagnostic; the detail should include the
+      concrete explanation and related paths.
+- [ ] Start a copy or migration action to the other agent system; the preview
+      should show source, destination, and whether the target already exists
+      before the write action is enabled.
 
 ## Path Preview And Finder
 

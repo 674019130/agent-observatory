@@ -22,6 +22,16 @@ final class OfficialDocTipsTests: XCTestCase {
         XCTAssertTrue(tips.allSatisfy { $0.sourceLocation.contains(">") })
     }
 
+    func testCapabilityAndMCPTipsStaySeparated() {
+        let capabilityTips = OfficialDocTips.tips(for: .capabilities, language: .english)
+        let mcpTips = OfficialDocTips.tips(for: .mcpTools, language: .english)
+
+        XCTAssertEqual(capabilityTips.map(\.id), ["codex-skills", "claude-skills"])
+        XCTAssertEqual(mcpTips.map(\.id), ["codex-mcp", "claude-mcp"])
+        XCTAssertTrue(mcpTips.contains { $0.sourceURL == "https://developers.openai.com/codex/mcp" })
+        XCTAssertTrue(mcpTips.contains { $0.sourceURL == "https://code.claude.com/docs/en/mcp" })
+    }
+
     func testAssetTipsExplainMCPConfigForTheMatchingSurface() {
         let asset = AgentAsset(
             path: "/Users/susu/.codex/config.toml",
