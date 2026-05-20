@@ -6,16 +6,7 @@ struct SidebarView: View {
 
     var body: some View {
         List {
-            Section(store.t(.contextBrowser)) {
-                SidebarFilterRow(
-                    title: store.t(.triggerRadar),
-                    systemImage: "scope",
-                    count: store.skillTriggerConflicts.count,
-                    isSelected: store.selectedSection == .triggerRadar
-                ) {
-                    store.showTriggerRadar()
-                }
-
+            Section(sidebarSectionTitle(english: "Context", chinese: "上下文")) {
                 SidebarFilterRow(
                     title: store.t(.overview),
                     systemImage: "rectangle.3.group",
@@ -51,6 +42,26 @@ struct SidebarView: View {
                 ) {
                     store.showMCPTools()
                 }
+            }
+
+            Section(sidebarSectionTitle(english: "Analysis", chinese: "分析")) {
+                SidebarFilterRow(
+                    title: systemPromptPreviewTitle,
+                    systemImage: "text.badge.checkmark",
+                    count: store.systemPromptPreviewItemCount,
+                    isSelected: store.selectedSection == .systemPromptPreview
+                ) {
+                    store.showSystemPromptPreview()
+                }
+
+                SidebarFilterRow(
+                    title: store.t(.triggerRadar),
+                    systemImage: "scope",
+                    count: store.skillTriggerConflicts.count,
+                    isSelected: store.selectedSection == .triggerRadar
+                ) {
+                    store.showTriggerRadar()
+                }
 
                 SidebarFilterRow(
                     title: store.t(.assembly),
@@ -62,7 +73,7 @@ struct SidebarView: View {
                 }
             }
 
-            Section(store.t(.surfaces)) {
+            Section(sidebarSectionTitle(english: "File Views", chinese: "文件视图")) {
                 SidebarFilterRow(
                     title: store.t(.allFiles),
                     systemImage: "square.grid.2x2",
@@ -72,7 +83,7 @@ struct SidebarView: View {
                     store.select(owner: nil)
                 }
 
-                ForEach(AgentOwner.allCases.filter { $0 != .unknown }) { owner in
+                ForEach(visibleSidebarOwners) { owner in
                     SidebarFilterRow(
                         title: L10n.agentOwner(owner, language: store.appLanguage),
                         systemImage: icon(for: owner),
@@ -114,24 +125,24 @@ struct SidebarView: View {
                     }
                 }
             }
-
-            Section(store.t(.index)) {
-                HStack {
-                    Label(store.t(.activeSources), systemImage: "checklist")
-                    Spacer()
-                    CountBadge(count: store.activeScanSources.count, tint: .blue)
-                }
-                HStack {
-                    Label(store.t(.existingPaths), systemImage: "folder.badge.gearshape")
-                    Spacer()
-                    CountBadge(count: store.existingScanSourceCount, tint: .green)
-                }
-            }
         }
         .listStyle(.sidebar)
         .navigationTitle(store.t(.appName))
         .safeAreaInset(edge: .bottom) {
             ScanStatusView()
+        }
+    }
+
+    private var visibleSidebarOwners: [AgentOwner] {
+        AgentOwner.allCases.filter { owner in
+            owner != .unknown && (owner != .project || store.summary.sources[owner, default: 0] > 0)
+        }
+    }
+
+    private func sidebarSectionTitle(english: String, chinese: String) -> String {
+        switch store.appLanguage {
+        case .english: english
+        case .simplifiedChinese: chinese
         }
     }
 
@@ -158,6 +169,15 @@ struct SidebarView: View {
         case .script: "chevron.left.forwardslash.chevron.right"
         case .session: "clock.arrow.circlepath"
         case .unknown: "questionmark"
+        }
+    }
+
+    private var systemPromptPreviewTitle: String {
+        switch store.appLanguage {
+        case .english:
+            "System Prompt"
+        case .simplifiedChinese:
+            "提示词预览"
         }
     }
 }
@@ -247,16 +267,19 @@ private struct ScanStatusView: View {
                         Text("• \(progress.assetsFound) \(store.t(.assets))")
                     }
                 }
+                indexHealthSummary
             } else if store.scanProgress?.phase == .cancelled {
                 HStack(spacing: 8) {
                     Image(systemName: "xmark.circle")
                     Text(store.t(.scanCancelled))
                 }
+                indexHealthSummary
             } else {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                     Text(store.t(.readyToScan))
                 }
+                indexHealthSummary
             }
         }
         .font(.caption)
@@ -265,5 +288,39 @@ private struct ScanStatusView: View {
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.bar)
+    }
+
+    private var indexHealthSummary: some View {
+        HStack(spacing: 10) {
+            sidebarStatusMetric(
+                title: store.t(.activeSources),
+                value: store.activeScanSources.count,
+                systemImage: "checklist",
+                tint: .blue
+            )
+
+            sidebarStatusMetric(
+                title: store.t(.existingPaths),
+                value: store.existingScanSourceCount,
+                systemImage: "folder.badge.gearshape",
+                tint: .green
+            )
+        }
+        .font(.caption2)
+        .foregroundStyle(.tertiary)
+    }
+
+    private func sidebarStatusMetric(
+        title: String,
+        value: Int,
+        systemImage: String,
+        tint: Color
+    ) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: systemImage)
+                .foregroundStyle(tint)
+            Text("\(title) \(value)")
+                .lineLimit(1)
+        }
     }
 }

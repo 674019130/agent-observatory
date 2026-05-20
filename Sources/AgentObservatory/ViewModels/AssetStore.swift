@@ -229,7 +229,7 @@ final class AssetStore: ObservableObject {
 
     private var selectionSurface: AssetSelectionSurface {
         switch selectedSection {
-        case .contextOverview, .memories, .capabilities, .mcpTools, .assembly:
+        case .contextOverview, .memories, .capabilities, .mcpTools, .assembly, .systemPromptPreview:
             return .contextBrowser
         default:
             return .assetTable
@@ -283,6 +283,18 @@ final class AssetStore: ObservableObject {
 
     var visibleNonMCPCapabilityItems: [ContextCatalogItem] {
         visibleCapabilityItems.filter { $0.asset.kind != .mcp }
+    }
+
+    var systemPromptPreviewItemCount: Int {
+        let items = contextCatalog.memoryItems + visibleCapabilityItems
+        return Set(
+            items
+                .filter { item in
+                    item.surfaces.contains(.claude) || item.surfaces.contains(.codex)
+                }
+                .map(\.asset.id)
+        )
+        .count
     }
 
     var contextTreeNodes: [ContextTreeNode] {
@@ -420,6 +432,15 @@ final class AssetStore: ObservableObject {
     func showAssembly() {
         navigate {
             selectedSection = .assembly
+            selectedContextTreeNodeID = nil
+            selectedSkillTriggerConflictID = nil
+            selectedAssetID = nil
+        }
+    }
+
+    func showSystemPromptPreview() {
+        navigate {
+            selectedSection = .systemPromptPreview
             selectedContextTreeNodeID = nil
             selectedSkillTriggerConflictID = nil
             selectedAssetID = nil
@@ -581,6 +602,7 @@ final class AssetStore: ObservableObject {
                 } else if self.selectedSection == .triggerRadar
                     || self.selectedSection == .contextOverview
                     || self.selectedSection == .assembly
+                    || self.selectedSection == .systemPromptPreview
                 {
                     self.selectedAssetID = nil
                 } else if self.selectedSection == .capabilities {

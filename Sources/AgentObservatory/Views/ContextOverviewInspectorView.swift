@@ -13,16 +13,16 @@ struct ContextOverviewInspectorView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                ContextGalleryHero(snapshot: snapshot, animateIn: animateIn)
+                ContextBriefHero(snapshot: snapshot, animateIn: animateIn)
                 ContextMixChartCard(snapshot: snapshot, animateIn: animateIn)
-                ContextFocusGallery(snapshot: snapshot)
+                ContextPriorityBrief(snapshot: snapshot)
                 ContextNextBestActions(snapshot: snapshot)
             }
             .padding(.horizontal, 22)
             .padding(.vertical, 20)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .navigationTitle(galleryTitle(language: store.appLanguage))
+        .navigationTitle(briefTitle(language: store.appLanguage))
         .onAppear {
             withAnimation(.easeOut(duration: 0.65)) {
                 animateIn = true
@@ -131,7 +131,7 @@ private struct ContextMixSlice: Identifiable {
     let tint: Color
 }
 
-private struct ContextGalleryHero: View {
+private struct ContextBriefHero: View {
     @EnvironmentObject private var store: AssetStore
     let snapshot: ContextOverviewSnapshot
     let animateIn: Bool
@@ -166,9 +166,9 @@ private struct ContextGalleryHero: View {
                 .frame(width: 82, height: 82)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(galleryTitle(language: store.appLanguage))
+                    Text(briefTitle(language: store.appLanguage))
                         .font(.title3.weight(.semibold))
-                    Text(gallerySubtitle(snapshot: snapshot, language: store.appLanguage))
+                    Text(briefSubtitle(snapshot: snapshot, language: store.appLanguage))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -178,19 +178,19 @@ private struct ContextGalleryHero: View {
             }
 
             HStack(spacing: 8) {
-                GalleryPill(
+                BriefMetricPill(
                     title: store.t(.assets),
                     value: snapshot.totalAssets,
                     systemImage: "tray.full",
                     tint: .blue
                 )
-                GalleryPill(
+                BriefMetricPill(
                     title: store.t(.warnings),
                     value: snapshot.warningCount,
                     systemImage: "exclamationmark.triangle",
                     tint: snapshot.warningCount > 0 ? .orange : .green
                 )
-                GalleryPill(
+                BriefMetricPill(
                     title: store.t(.riskQueue),
                     value: snapshot.topRisks.count,
                     systemImage: "list.bullet.clipboard",
@@ -208,7 +208,7 @@ private struct ContextGalleryHero: View {
     }
 }
 
-private struct GalleryPill: View {
+private struct BriefMetricPill: View {
     let title: String
     let value: Int
     let systemImage: String
@@ -242,7 +242,7 @@ private struct ContextMixChartCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            ContextGalleryCardHeader(
+            ContextBriefCardHeader(
                 title: contextMixTitle(language: store.appLanguage),
                 subtitle: contextMixSubtitle(language: store.appLanguage),
                 systemImage: "chart.bar.xaxis",
@@ -284,108 +284,124 @@ private struct ContextMixChartCard: View {
                 .frame(height: CGFloat(max(132, slices.count * 34)))
             }
         }
-        .galleryCard()
+        .briefCard()
     }
 }
 
-private struct ContextFocusGallery: View {
+private struct ContextPriorityBrief: View {
     @EnvironmentObject private var store: AssetStore
     let snapshot: ContextOverviewSnapshot
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ContextGalleryCardHeader(
-                title: focusGalleryTitle(language: store.appLanguage),
-                subtitle: focusGallerySubtitle(language: store.appLanguage),
-                systemImage: "sparkles.rectangle.stack",
-                tint: .purple
+        VStack(alignment: .leading, spacing: 12) {
+            ContextBriefCardHeader(
+                title: priorityBriefTitle(language: store.appLanguage),
+                subtitle: priorityBriefSubtitle(language: store.appLanguage),
+                systemImage: "list.bullet.clipboard",
+                tint: .orange
             )
 
-            ScrollView(.horizontal) {
-                HStack(spacing: 10) {
-                    FocusTile(
-                        title: memorySyncTileTitle(language: store.appLanguage),
-                        value: "\(snapshot.oneSidedMemoryCount)",
-                        detail: memorySyncTileDetail(snapshot: snapshot, language: store.appLanguage),
-                        systemImage: "arrow.left.arrow.right",
-                        tint: snapshot.oneSidedMemoryCount > 0 ? .orange : .green
-                    ) {
-                        store.showMemories()
-                    }
-
-                    FocusTile(
-                        title: userCapabilityTileTitle(language: store.appLanguage),
-                        value: "\(snapshot.userCapabilityGroups)",
-                        detail: userCapabilityTileDetail(snapshot: snapshot, language: store.appLanguage),
-                        systemImage: "wand.and.stars",
-                        tint: .teal
-                    ) {
-                        store.showCapabilities()
-                    }
-
-                    FocusTile(
-                        title: radarTileTitle(language: store.appLanguage),
-                        value: "\(snapshot.triggerConflictCount)",
-                        detail: radarTileDetail(snapshot: snapshot, language: store.appLanguage),
-                        systemImage: "scope",
-                        tint: snapshot.highConflictCount > 0 ? .red : .indigo
-                    ) {
-                        store.showTriggerRadar()
-                    }
-
-                    FocusTile(
-                        title: aiCoverageTitle(language: store.appLanguage),
-                        value: "\(Int((snapshot.aiCoverage.ratio * 100).rounded()))%",
-                        detail: aiCoverageDetail(snapshot: snapshot, language: store.appLanguage),
-                        systemImage: "sparkles",
-                        tint: .purple
-                    ) {
-                        store.showAssets()
-                    }
+            VStack(spacing: 8) {
+                PrioritySignalRow(
+                    title: memorySyncTileTitle(language: store.appLanguage),
+                    metric: "\(snapshot.oneSidedMemoryCount)",
+                    detail: memorySyncTileDetail(snapshot: snapshot, language: store.appLanguage),
+                    label: memorySyncPriorityLabel(snapshot: snapshot, language: store.appLanguage),
+                    systemImage: "arrow.left.arrow.right",
+                    tint: snapshot.oneSidedMemoryCount > 0 ? .orange : .green
+                ) {
+                    store.showMemories()
                 }
-                .padding(.vertical, 1)
+
+                PrioritySignalRow(
+                    title: radarTileTitle(language: store.appLanguage),
+                    metric: "\(snapshot.triggerConflictCount)",
+                    detail: radarTileDetail(snapshot: snapshot, language: store.appLanguage),
+                    label: radarPriorityLabel(snapshot: snapshot, language: store.appLanguage),
+                    systemImage: "scope",
+                    tint: snapshot.highConflictCount > 0 ? .red : (snapshot.triggerConflictCount > 0 ? .orange : .green)
+                ) {
+                    store.showTriggerRadar()
+                }
+
+                PrioritySignalRow(
+                    title: userCapabilityTileTitle(language: store.appLanguage),
+                    metric: "\(snapshot.userCapabilityGroups)",
+                    detail: userCapabilityTileDetail(snapshot: snapshot, language: store.appLanguage),
+                    label: userCapabilityPriorityLabel(language: store.appLanguage),
+                    systemImage: "wand.and.stars",
+                    tint: .teal
+                ) {
+                    store.showCapabilities()
+                }
+
+                PrioritySignalRow(
+                    title: aiCoverageTitle(language: store.appLanguage),
+                    metric: "\(Int((snapshot.aiCoverage.ratio * 100).rounded()))%",
+                    detail: aiCoverageDetail(snapshot: snapshot, language: store.appLanguage),
+                    label: aiCoveragePriorityLabel(snapshot: snapshot, language: store.appLanguage),
+                    systemImage: "sparkles",
+                    tint: snapshot.aiCoverage.missing > 0 ? .purple : .green
+                ) {
+                    store.showAssets()
+                }
             }
-            .scrollIndicators(.hidden)
         }
-        .galleryCard()
+        .briefCard()
     }
 }
 
-private struct FocusTile: View {
+private struct PrioritySignalRow: View {
     let title: String
-    let value: String
+    let metric: String
     let detail: String
+    let label: String
     let systemImage: String
     let tint: Color
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
+            HStack(alignment: .center, spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(tint.opacity(0.12))
                     Image(systemName: systemImage)
                         .foregroundStyle(tint)
-                    Spacer()
-                    Text(value)
-                        .font(.system(size: 25, weight: .semibold, design: .rounded))
-                        .monospacedDigit()
+                        .font(.system(size: 15, weight: .semibold))
                 }
+                .frame(width: 34, height: 34)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text(title)
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        BadgeView(text: label, tint: tint)
+                    }
+
                     Text(detail)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+
+                Spacer(minLength: 8)
+
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(metric)
+                        .font(.system(size: 21, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.primary)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
             }
-            .padding(12)
-            .frame(width: 174, alignment: .topLeading)
-            .frame(minHeight: 128, alignment: .topLeading)
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .background(tint.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -403,7 +419,7 @@ private struct ContextNextBestActions: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            ContextGalleryCardHeader(
+            ContextBriefCardHeader(
                 title: nextActionTitle(language: store.appLanguage),
                 subtitle: nextActionSubtitle(language: store.appLanguage),
                 systemImage: "checklist",
@@ -438,11 +454,11 @@ private struct ContextNextBestActions: View {
                 SurfaceBalanceStrip(surfaceCounts: snapshot.surfaceCounts)
             }
         }
-        .galleryCard()
+        .briefCard()
     }
 }
 
-private struct ContextGalleryCardHeader: View {
+private struct ContextBriefCardHeader: View {
     let title: String
     let subtitle: String
     let systemImage: String
@@ -586,7 +602,7 @@ private struct SurfaceBalanceStrip: View {
     }
 }
 
-private struct GalleryCardModifier: ViewModifier {
+private struct BriefCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(14)
@@ -600,8 +616,8 @@ private struct GalleryCardModifier: ViewModifier {
 }
 
 private extension View {
-    func galleryCard() -> some View {
-        modifier(GalleryCardModifier())
+    func briefCard() -> some View {
+        modifier(BriefCardModifier())
     }
 }
 
@@ -626,16 +642,16 @@ private func readinessTint(_ score: Int) -> Color {
     }
 }
 
-private func galleryTitle(language: AppLanguage) -> String {
+private func briefTitle(language: AppLanguage) -> String {
     switch language {
     case .english:
-        "Context Gallery"
+        "Context Brief"
     case .simplifiedChinese:
-        "上下文画廊"
+        "上下文态势"
     }
 }
 
-private func gallerySubtitle(snapshot: ContextOverviewSnapshot, language: AppLanguage) -> String {
+private func briefSubtitle(snapshot: ContextOverviewSnapshot, language: AppLanguage) -> String {
     if snapshot.totalAssets == 0 {
         return language == .simplifiedChinese
             ? "刷新索引后，这里会展示上下文结构、风险和迁移机会。"
@@ -672,12 +688,12 @@ private func contextMixDomainAxis(language: AppLanguage) -> String {
     language == .simplifiedChinese ? "域" : "Domain"
 }
 
-private func focusGalleryTitle(language: AppLanguage) -> String {
-    language == .simplifiedChinese ? "最值得点进去看的地方" : "Best Places To Open"
+private func priorityBriefTitle(language: AppLanguage) -> String {
+    language == .simplifiedChinese ? "优先处理队列" : "Priority Queue"
 }
 
-private func focusGallerySubtitle(language: AppLanguage) -> String {
-    language == .simplifiedChinese ? "把最有操作价值的入口做成横向画廊。" : "A compact gallery of the most actionable entry points."
+private func priorityBriefSubtitle(language: AppLanguage) -> String {
+    language == .simplifiedChinese ? "按影响排序，只保留会改变下一步操作的信号。" : "Ranked by impact, keeping only signals that should change your next action."
 }
 
 private func memorySyncTileTitle(language: AppLanguage) -> String {
@@ -687,10 +703,17 @@ private func memorySyncTileTitle(language: AppLanguage) -> String {
 private func memorySyncTileDetail(snapshot: ContextOverviewSnapshot, language: AppLanguage) -> String {
     switch language {
     case .english:
-        "\(snapshot.bothSidesMemoryCount) aligned across both tools"
+        "\(snapshot.bothSidesMemoryCount) aligned across both tools; decide whether the one-sided files should migrate."
     case .simplifiedChinese:
-        "\(snapshot.bothSidesMemoryCount) 条已经两边都有"
+        "\(snapshot.bothSidesMemoryCount) 条已经两边都有；单边项需要决定是否迁移。"
     }
+}
+
+private func memorySyncPriorityLabel(snapshot: ContextOverviewSnapshot, language: AppLanguage) -> String {
+    if snapshot.oneSidedMemoryCount == 0 {
+        return language == .simplifiedChinese ? "已对齐" : "Aligned"
+    }
+    return language == .simplifiedChinese ? "可迁移" : "Migration"
 }
 
 private func userCapabilityTileTitle(language: AppLanguage) -> String {
@@ -700,10 +723,14 @@ private func userCapabilityTileTitle(language: AppLanguage) -> String {
 private func userCapabilityTileDetail(snapshot: ContextOverviewSnapshot, language: AppLanguage) -> String {
     switch language {
     case .english:
-        "\(snapshot.officialCapabilityGroups) official groups stay lower priority"
+        "\(snapshot.officialCapabilityGroups) official groups are baseline; focus on user-imported skill groups first."
     case .simplifiedChinese:
-        "\(snapshot.officialCapabilityGroups) 个官方组保持低优先级"
+        "\(snapshot.officialCapabilityGroups) 个官方组只是基线，优先看用户导入的能力组。"
     }
+}
+
+private func userCapabilityPriorityLabel(language: AppLanguage) -> String {
+    language == .simplifiedChinese ? "用户导入" : "User"
 }
 
 private func radarTileTitle(language: AppLanguage) -> String {
@@ -713,10 +740,20 @@ private func radarTileTitle(language: AppLanguage) -> String {
 private func radarTileDetail(snapshot: ContextOverviewSnapshot, language: AppLanguage) -> String {
     switch language {
     case .english:
-        "\(snapshot.highConflictCount) high-priority conflicts"
+        "\(snapshot.highConflictCount) high-priority conflicts inside \(snapshot.triggerConflictCount) total trigger overlaps."
     case .simplifiedChinese:
-        "\(snapshot.highConflictCount) 个高优先级冲突"
+        "\(snapshot.triggerConflictCount) 个触发重叠，其中 \(snapshot.highConflictCount) 个高优先级。"
     }
+}
+
+private func radarPriorityLabel(snapshot: ContextOverviewSnapshot, language: AppLanguage) -> String {
+    if snapshot.highConflictCount > 0 {
+        return language == .simplifiedChinese ? "高优先级" : "High"
+    }
+    if snapshot.triggerConflictCount > 0 {
+        return language == .simplifiedChinese ? "待确认" : "Review"
+    }
+    return language == .simplifiedChinese ? "稳定" : "Stable"
 }
 
 private func aiCoverageTitle(language: AppLanguage) -> String {
@@ -726,10 +763,17 @@ private func aiCoverageTitle(language: AppLanguage) -> String {
 private func aiCoverageDetail(snapshot: ContextOverviewSnapshot, language: AppLanguage) -> String {
     switch language {
     case .english:
-        "\(snapshot.aiCoverage.explained) explained, \(snapshot.aiCoverage.missing) missing"
+        "\(snapshot.aiCoverage.explained) explained, \(snapshot.aiCoverage.missing) missing; useful when triaging unfamiliar files."
     case .simplifiedChinese:
-        "\(snapshot.aiCoverage.explained) 已解释，\(snapshot.aiCoverage.missing) 未覆盖"
+        "\(snapshot.aiCoverage.explained) 已解释，\(snapshot.aiCoverage.missing) 未覆盖；适合排查陌生文件时补齐。"
     }
+}
+
+private func aiCoveragePriorityLabel(snapshot: ContextOverviewSnapshot, language: AppLanguage) -> String {
+    if snapshot.aiCoverage.missing == 0 {
+        return language == .simplifiedChinese ? "已覆盖" : "Covered"
+    }
+    return language == .simplifiedChinese ? "低优先级" : "Low"
 }
 
 private func nextActionTitle(language: AppLanguage) -> String {

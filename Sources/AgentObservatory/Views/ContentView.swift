@@ -4,6 +4,29 @@ struct ContentView: View {
     @EnvironmentObject private var store: AssetStore
 
     var body: some View {
+        Group {
+            if store.selectedSection == .systemPromptPreview {
+                wideCanvasLayout
+            } else {
+                standardSplitLayout
+            }
+        }
+        .toolbar {
+            appToolbar
+        }
+    }
+
+    private var wideCanvasLayout: some View {
+        NavigationSplitView {
+            SidebarView()
+                .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
+        } detail: {
+            SystemPromptPreviewView()
+                .navigationSplitViewColumnWidth(min: 720, ideal: 1120)
+        }
+    }
+
+    private var standardSplitLayout: some View {
         NavigationSplitView {
             SidebarView()
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
@@ -82,26 +105,28 @@ struct ContentView: View {
                     .navigationSplitViewColumnWidth(min: 420, ideal: 620)
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Button {
-                    store.goBack()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .compactHitTarget()
-                }
-                .disabled(!store.canGoBack)
-                .help(store.t(.goBack))
-                .accessibilityLabel(store.t(.goBack))
-            }
+    }
 
-            ToolbarItem(placement: .primaryAction) {
-                scanToolbarButton
+    @ToolbarContentBuilder
+    private var appToolbar: some ToolbarContent {
+        ToolbarItem(placement: .navigation) {
+            Button {
+                store.goBack()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .compactHitTarget()
             }
+            .disabled(!store.canGoBack)
+            .help(store.t(.goBack))
+            .accessibilityLabel(store.t(.goBack))
+        }
 
-            ToolbarItem(placement: .principal) {
-                searchField
-            }
+        ToolbarItem(placement: .primaryAction) {
+            scanToolbarButton
+        }
+
+        ToolbarItem(placement: .principal) {
+            searchField
         }
     }
 

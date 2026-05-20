@@ -7,6 +7,7 @@ enum WorkspaceSection: String, CaseIterable, Identifiable {
     case capabilities = "Capabilities"
     case mcpTools = "MCP"
     case assembly = "Assembly"
+    case systemPromptPreview = "System Prompt Preview"
     case dashboard = "Dashboard"
     case organizer = "Organizer"
     case assets = "Assets"

@@ -61,6 +61,7 @@ struct PathPreviewLink: View {
     var revealAction: (String) -> Void = FinderPathOpener.reveal
 
     @State private var isShowingPreview = false
+    @State private var isHoveringPath = false
     @State private var showPreviewTask: Task<Void, Never>?
     @State private var hidePreviewTask: Task<Void, Never>?
 
@@ -87,28 +88,30 @@ struct PathPreviewLink: View {
             revealPath()
         }
         .onHover { hovering in
+            isHoveringPath = hovering
             hovering ? schedulePreviewShow() : schedulePreviewHide()
         }
         .popover(isPresented: $isShowingPreview, arrowEdge: .bottom) {
             PathPreviewPopover(
                 path: path,
                 language: language,
-                onReveal: revealPath,
-                onHoverChange: { hovering in
-                    hovering ? showPreviewImmediately() : schedulePreviewHide()
-                }
+                onReveal: revealPath
             )
         }
         .help(path)
         .onDisappear {
-            cancelPreviewTasks()
-            isShowingPreview = false
+            hidePreviewImmediately()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
+            hidePreviewImmediately()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { _ in
+            hidePreviewImmediately()
         }
     }
 
     private func revealPath() {
-        cancelPreviewTasks()
-        isShowingPreview = false
+        hidePreviewImmediately()
         revealAction(path)
     }
 
@@ -122,15 +125,11 @@ struct PathPreviewLink: View {
                 return
             }
             await MainActor.run {
-                isShowingPreview = true
+                if isHoveringPath {
+                    isShowingPreview = true
+                }
             }
         }
-    }
-
-    private func showPreviewImmediately() {
-        showPreviewTask?.cancel()
-        hidePreviewTask?.cancel()
-        isShowingPreview = true
     }
 
     private func schedulePreviewHide() {
@@ -143,7 +142,9 @@ struct PathPreviewLink: View {
                 return
             }
             await MainActor.run {
-                isShowingPreview = false
+                if !isHoveringPath {
+                    isShowingPreview = false
+                }
             }
         }
     }
@@ -152,13 +153,18 @@ struct PathPreviewLink: View {
         showPreviewTask?.cancel()
         hidePreviewTask?.cancel()
     }
+
+    private func hidePreviewImmediately() {
+        cancelPreviewTasks()
+        isHoveringPath = false
+        isShowingPreview = false
+    }
 }
 
 private struct PathPreviewPopover: View {
     let path: String
     let language: AppLanguage
     let onReveal: () -> Void
-    let onHoverChange: (Bool) -> Void
 
     var body: some View {
         Button(action: onReveal) {
@@ -183,7 +189,6 @@ private struct PathPreviewPopover: View {
             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
-        .onHover(perform: onHoverChange)
         .help(actionHint)
     }
 

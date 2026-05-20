@@ -477,8 +477,8 @@ private struct CapabilityCategorySectionView: View {
     let toggle: (ContextCapabilityGroup) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(alignment: .top, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 10) {
                 Image(systemName: capabilityCategoryIcon(section.category))
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(capabilityCategoryTint(section.category))
@@ -488,7 +488,7 @@ private struct CapabilityCategorySectionView: View {
                         in: RoundedRectangle(cornerRadius: 6, style: .continuous)
                     )
 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 2) {
                     HStack(alignment: .firstTextBaseline, spacing: 7) {
                         Text(capabilityCategoryTitle(section.category, language: store.appLanguage))
                             .font(.headline)
@@ -503,15 +503,15 @@ private struct CapabilityCategorySectionView: View {
                         }
                     }
 
-                    Text(capabilityCategoryDescription(section.category, language: store.appLanguage))
+                    Text(capabilityCategoryDisplayDescription(section, language: store.appLanguage))
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(2)
                 }
             }
 
-            LazyVStack(alignment: .leading, spacing: 10) {
-                ForEach(section.groups) { group in
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(section.groups.enumerated()), id: \.element.id) { index, group in
                     CapabilityGroupRow(
                         group: group,
                         isExpanded: expandedGroupIDs.contains(group.id),
@@ -519,7 +519,17 @@ private struct CapabilityCategorySectionView: View {
                             toggle(group)
                         }
                     )
+
+                    if index < section.groups.count - 1 {
+                        Divider()
+                            .padding(.leading, 46)
+                    }
                 }
+            }
+            .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.36))
             }
         }
         .padding(12)
@@ -535,6 +545,7 @@ private struct CapabilityCategorySectionView: View {
 private struct CapabilityGroupRow: View {
     @EnvironmentObject private var store: AssetStore
     @State private var visibleItemLimit = capabilityGroupVisibleBatchSize
+    @State private var isHovering = false
     let group: ContextCapabilityGroup
     let isExpanded: Bool
     let toggle: () -> Void
@@ -548,29 +559,33 @@ private struct CapabilityGroupRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 0) {
             Button(action: toggle) {
-                HStack(alignment: .top, spacing: 10) {
+                HStack(alignment: .center, spacing: 10) {
                     Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
-                        .frame(width: 18, height: 20)
+                        .frame(width: 14, height: 20)
 
                     Image(systemName: assetKindIcon(group.primaryKind))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(capabilityKindTint(group.primaryKind))
-                        .frame(width: 20, height: 20)
+                        .frame(width: 22, height: 22)
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(alignment: .firstTextBaseline, spacing: 7) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text(group.title)
-                                .font(.headline)
+                                .font(.callout.weight(.semibold))
                                 .foregroundStyle(.primary)
                                 .lineLimit(1)
 
-                            CountBadge(count: group.items.count, tint: capabilityKindTint(group.primaryKind))
+                            Text(capabilityGroupCountLabel(group, language: store.appLanguage))
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(capabilityKindTint(group.primaryKind))
+                                .lineLimit(1)
                         }
 
-                        Text(capabilityGroupSummary(group, language: store.appLanguage))
+                        Text(capabilityGroupPreview(group, language: store.appLanguage))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -580,41 +595,36 @@ private struct CapabilityGroupRow: View {
 
                     HStack(spacing: 5) {
                         if let origin = group.origin {
-                            BadgeView(
+                            CapabilityGroupTag(
                                 text: L10n.skillInstallOrigin(origin, language: store.appLanguage),
                                 tint: skillInstallOriginTint(origin)
                             )
                         }
 
                         ForEach(group.owners.prefix(2), id: \.self) { owner in
-                            BadgeView(text: ownerLabel(owner), tint: ownerTint(owner))
+                            CapabilityGroupTag(text: ownerLabel(owner), tint: ownerTint(owner))
                         }
                     }
+                    .layoutPriority(1)
                 }
-                .padding(.horizontal, 10)
-                .padding(.top, 10)
-                .contentShape(Rectangle())
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .frame(minHeight: 58)
+                .background(
+                    isHovering ? Color.accentColor.opacity(0.055) : Color.clear,
+                    in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
             }
             .buttonStyle(.plain)
-
-            HStack(spacing: 8) {
-                Color.clear.frame(width: 48, height: 1)
-                PathPreviewLink(
-                    path: group.rootPath,
-                    displayPath: displayPath(group.rootPath),
-                    font: .caption2.monospaced(),
-                    foregroundColor: .secondary.opacity(0.72),
-                    language: store.appLanguage
-                )
+            .onHover { hovering in
+                isHovering = hovering
             }
-            .padding(.horizontal, 10)
-
-            CapabilityGroupingBasisLine(basis: group.groupingBasis)
-                .padding(.horizontal, 10)
 
             if isExpanded {
-                Divider()
-                    .padding(.horizontal, 10)
+                CapabilityGroupExpandedMeta(group: group)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
 
                 LazyVStack(spacing: 6) {
                     ForEach(visibleItems) { item in
@@ -622,6 +632,7 @@ private struct CapabilityGroupRow: View {
                     }
                 }
                 .padding(.horizontal, 8)
+                .padding(.bottom, 8)
 
                 if hasMoreItems {
                     Button {
@@ -640,6 +651,7 @@ private struct CapabilityGroupRow: View {
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .padding(.horizontal, 8)
+                    .padding(.bottom, 8)
                 }
             }
         }
@@ -654,17 +666,55 @@ private struct CapabilityGroupRow: View {
                 visibleItemLimit = capabilityGroupVisibleBatchSize
             }
         }
-        .padding(.bottom, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color(nsColor: .separatorColor).opacity(0.48))
-        }
     }
 
     private func ownerLabel(_ owner: AgentOwner) -> String {
         owner == .claude ? store.t(.claudeCode) : L10n.agentOwner(owner, language: store.appLanguage)
+    }
+}
+
+private struct CapabilityGroupExpandedMeta: View {
+    @EnvironmentObject private var store: AssetStore
+    let group: ContextCapabilityGroup
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: "folder")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 14)
+
+                PathPreviewLink(
+                    path: group.rootPath,
+                    displayPath: displayPath(group.rootPath),
+                    font: .caption2.monospaced(),
+                    foregroundColor: .secondary.opacity(0.72),
+                    language: store.appLanguage
+                )
+            }
+
+            CapabilityGroupingBasisLine(basis: group.groupingBasis)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.64), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+    }
+}
+
+private struct CapabilityGroupTag: View {
+    let text: String
+    let tint: Color
+
+    var body: some View {
+        Text(text)
+            .font(.caption2.weight(.medium))
+            .lineLimit(1)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .foregroundStyle(tint)
+            .background(tint.opacity(0.10), in: Capsule())
     }
 }
 
@@ -1679,6 +1729,16 @@ private func capabilityCategoryDescription(_ category: ContextCapabilityCategory
     }
 }
 
+private func capabilityCategoryDisplayDescription(_ section: ContextCapabilitySection, language: AppLanguage) -> String {
+    let description = capabilityCategoryDescription(section.category, language: language)
+    switch language {
+    case .simplifiedChinese:
+        return "\(section.groups.count) 组 · \(description)"
+    case .english:
+        return "\(section.groups.count) groups · \(description)"
+    }
+}
+
 private func capabilityCategoryIcon(_ category: ContextCapabilityCategory) -> String {
     switch category {
     case .userSkills: "wand.and.stars"
@@ -1820,6 +1880,39 @@ private func sourceHelpText(basis: ContextCapabilityGroupingBasis, language: App
         return groupingBasisSourceLabel(language: language)
     }
     return "\(groupingBasisSourceLabel(language: language)): \(sourceLocation)"
+}
+
+private func capabilityGroupCountLabel(_ group: ContextCapabilityGroup, language: AppLanguage) -> String {
+    if group.kindCounts.count == 1,
+       let kind = group.kindCounts.keys.first {
+        return "\(group.items.count) \(L10n.assetKind(kind, language: language))"
+    }
+    return "\(group.items.count) items"
+}
+
+private func capabilityGroupPreview(_ group: ContextCapabilityGroup, language: AppLanguage) -> String {
+    if group.items.count == 1,
+       let item = group.items.first,
+       !item.asset.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        return item.asset.summary
+    }
+
+    let names = group.items
+        .map(\.asset.title)
+        .filter { !$0.isEmpty && $0.localizedCaseInsensitiveCompare(group.title) != .orderedSame }
+        .prefix(3)
+
+    if !names.isEmpty {
+        let joined = names.joined(separator: " · ")
+        if group.items.count > names.count {
+            return "\(joined) · +\(group.items.count - names.count)"
+        }
+        return joined
+    }
+
+    let basis = groupingBasisTitle(group.groupingBasis.kind, language: language)
+    let summary = capabilityGroupSummary(group, language: language)
+    return summary.isEmpty ? basis : "\(summary) · \(basis)"
 }
 
 private func capabilityGroupSummary(_ group: ContextCapabilityGroup, language: AppLanguage) -> String {
