@@ -5,6 +5,8 @@ import SwiftUI
 struct ContextOverviewInspectorView: View {
     @EnvironmentObject private var store: AssetStore
     @State private var animateIn = false
+    @State private var selectedWeightItemID: ContextWeightItem.ID?
+    @State private var hoveredWeightItemID: ContextWeightItem.ID?
 
     private var snapshot: ContextOverviewSnapshot {
         ContextOverviewSnapshot(store: store)
@@ -13,22 +15,26 @@ struct ContextOverviewInspectorView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                ContextBriefHero(snapshot: snapshot, animateIn: animateIn)
-                ContextMixChartCard(snapshot: snapshot, animateIn: animateIn)
-                ContextPriorityBrief(snapshot: snapshot)
-                ContextNextBestActions(snapshot: snapshot)
+                ContextWeightRankingExperience(
+                    snapshot: snapshot,
+                    selectedItemID: $selectedWeightItemID,
+                    hoveredItemID: $hoveredWeightItemID,
+                    animateIn: animateIn
+                )
             }
-            .padding(.horizontal, 22)
-            .padding(.vertical, 20)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 24)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .navigationTitle(briefTitle(language: store.appLanguage))
+        .navigationTitle(contextWeightTitle(language: store.appLanguage))
         .onAppear {
             withAnimation(.easeOut(duration: 0.65)) {
                 animateIn = true
             }
         }
         .onChange(of: snapshot.signature) { _, _ in
+            selectedWeightItemID = nil
+            hoveredWeightItemID = nil
             animateIn = false
             withAnimation(.easeOut(duration: 0.65).delay(0.05)) {
                 animateIn = true
@@ -54,11 +60,34 @@ private struct ContextOverviewSnapshot {
     let officialCapabilityGroups: Int
     let aiCoverage: DashboardAICoverage
     let surfaceCounts: [(owner: AgentOwner, count: Int)]
+    let promptPreviews: [SystemPromptPreview]
+    let promptMaterialCount: Int
+    let registryItemCount: Int
+    let estimatedTokenCount: Int
+    let rankedContextFiles: [ContextWeightItem]
+    let rankedContextSections: [ContextWeightSection]
+    let rankedTokenTotal: Int
 
     @MainActor init(store: AssetStore) {
         let catalog = store.contextCatalog
         let memoryGroups = MemoryMigrationPlanner().groups(items: catalog.memoryItems)
         let capabilitySections = ContextCapabilityGrouper().sections(items: catalog.capabilityItems)
+        let query = store.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let memoryItems = catalog.memoryItems.filter { query.isEmpty || $0.asset.matchesSearch(query: query) }
+        let capabilityItems = store.visibleCapabilityItems.filter { query.isEmpty || $0.asset.matchesSearch(query: query) }
+        let promptCatalog = ContextCatalog(
+            memoryItems: memoryItems,
+            capabilityItems: capabilityItems,
+            assemblySteps: []
+        )
+        let previewBuilder = SystemPromptPreviewBuilder()
+        let previews = [AgentOwner.claude, .codex].map { surface in
+            previewBuilder.preview(
+                surface: surface,
+                catalog: promptCatalog,
+                visibleCapabilityItems: capabilityItems
+            )
+        }
 
         totalAssets = store.visibleAssets.count
         memoryCount = catalog.memoryItems.count
@@ -75,6 +104,14 @@ private struct ContextOverviewSnapshot {
         userCapabilityGroups = capabilitySections.first { $0.category == .userSkills }?.groups.count ?? 0
         officialCapabilityGroups = capabilitySections.first { $0.category == .officialCapabilities }?.groups.count ?? 0
         aiCoverage = store.dashboardSummary.aiCoverage
+        promptPreviews = previews
+        promptMaterialCount = previews.reduce(0) { $0 + $1.promptMaterialItemCount }
+        registryItemCount = previews.reduce(0) { $0 + $1.registryItemCount }
+        estimatedTokenCount = previews.reduce(0) { $0 + $1.estimatedTokenCount }
+        let rankedFiles = contextWeightItems(from: memoryItems + capabilityItems)
+        rankedContextFiles = rankedFiles
+        rankedContextSections = contextWeightSections(from: rankedFiles)
+        rankedTokenTotal = max(1, rankedFiles.reduce(0) { $0 + $1.tokenCount })
         surfaceCounts = AgentOwner.allCases
             .filter { $0 != .unknown }
             .map { owner in (owner: owner, count: store.summary.sources[owner, default: 0]) }
@@ -107,7 +144,13 @@ private struct ContextOverviewSnapshot {
             highConflictCount,
             userCapabilityGroups,
             officialCapabilityGroups,
-            Int(aiCoverage.ratio * 100)
+            Int(aiCoverage.ratio * 100),
+            promptMaterialCount,
+            registryItemCount,
+            estimatedTokenCount,
+            rankedTokenTotal,
+            rankedContextFiles.first?.tokenCount ?? 0,
+            rankedContextSections.first?.tokenTotal ?? 0
         ]
         .map(String.init)
         .joined(separator: "-")
@@ -129,6 +172,1104 @@ private struct ContextMixSlice: Identifiable {
     let title: String
     let count: Int
     let tint: Color
+}
+
+private struct ContextWeightItem: Identifiable {
+    let id: String
+    let asset: AgentAsset
+    let tokenCount: Int
+    let destinations: [ContextLoadDestination]
+    let layers: [AgentContextLayer]
+    let surfaces: [AgentOwner]
+    let roles: [AgentContextRole]
+
+    var isPromptMaterial: Bool {
+        destinations.contains(where: \.isPromptMaterial)
+    }
+}
+
+private struct ContextWeightSection: Identifiable {
+    var id: AgentOwner { owner }
+    let owner: AgentOwner
+    let items: [ContextWeightItem]
+    let tokenTotal: Int
+}
+
+private struct ContextWeightRankingExperience: View {
+    @EnvironmentObject private var store: AssetStore
+    let snapshot: ContextOverviewSnapshot
+    @Binding var selectedItemID: ContextWeightItem.ID?
+    @Binding var hoveredItemID: ContextWeightItem.ID?
+    let animateIn: Bool
+
+    private var activeItem: ContextWeightItem? {
+        let activeID = hoveredItemID ?? selectedItemID
+        if let activeID,
+           let item = snapshot.rankedContextFiles.first(where: { $0.id == activeID }) {
+            return item
+        }
+        return snapshot.rankedContextFiles.first
+    }
+
+    private var activeOwnerTokenTotal: Int {
+        guard let activeItem else { return snapshot.rankedTokenTotal }
+        return snapshot.rankedContextSections.first { $0.owner == activeItem.asset.owner }?.tokenTotal ?? snapshot.rankedTokenTotal
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            ContextWeightHero(snapshot: snapshot, animateIn: animateIn)
+
+            HStack(alignment: .top, spacing: 18) {
+                ContextWeightRankingList(
+                    sections: snapshot.rankedContextSections,
+                    totalTokenCount: snapshot.rankedTokenTotal,
+                    selectedItemID: $selectedItemID,
+                    hoveredItemID: $hoveredItemID
+                )
+                .frame(minWidth: 560)
+
+                ContextWeightDetailPanel(
+                    item: activeItem,
+                    ownerTokenCount: activeOwnerTokenTotal,
+                    totalTokenCount: snapshot.rankedTokenTotal
+                )
+                .frame(width: 360)
+            }
+
+            ContextWeightActionStrip(snapshot: snapshot)
+        }
+    }
+}
+
+private struct ContextWeightHero: View {
+    @EnvironmentObject private var store: AssetStore
+    let snapshot: ContextOverviewSnapshot
+    let animateIn: Bool
+
+    private var topShare: Double {
+        guard let top = snapshot.rankedContextFiles.first else { return 0 }
+        return Double(top.tokenCount) / Double(max(1, snapshot.rankedTokenTotal))
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 18) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.blue.opacity(0.12))
+                Image(systemName: "list.number")
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundStyle(.blue)
+            }
+            .frame(width: 58, height: 58)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(contextWeightTitle(language: store.appLanguage))
+                    .font(.title2.weight(.semibold))
+                Text(contextWeightSubtitle(snapshot: snapshot, language: store.appLanguage))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 14)
+
+            HStack(spacing: 8) {
+                ContextWeightMetric(
+                    title: contextWeightText("Top file", "最大文件", language: store.appLanguage),
+                    value: contextWeightPercent(topShare),
+                    systemImage: "chart.pie",
+                    tint: .blue
+                )
+                ContextWeightMetric(
+                    title: contextWeightText("Apps", "应用", language: store.appLanguage),
+                    value: "\(snapshot.rankedContextSections.count)",
+                    systemImage: "rectangle.3.group",
+                    tint: .teal
+                )
+                ContextWeightMetric(
+                    title: "Token",
+                    value: contextWeightCompactNumber(snapshot.rankedTokenTotal),
+                    systemImage: "number",
+                    tint: .secondary
+                )
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.35))
+        }
+        .opacity(animateIn ? 1 : 0)
+        .offset(y: animateIn ? 0 : 10)
+    }
+}
+
+private struct ContextWeightMetric: View {
+    let title: String
+    let value: String
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 5) {
+                Image(systemName: systemImage)
+                    .foregroundStyle(tint)
+                Text(title)
+                    .foregroundStyle(.secondary)
+            }
+            .font(.caption2.weight(.medium))
+
+            Text(value)
+                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
+        .frame(minWidth: 92, alignment: .leading)
+        .background(tint.opacity(0.09), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct ContextWeightRankingList: View {
+    @EnvironmentObject private var store: AssetStore
+    let sections: [ContextWeightSection]
+    let totalTokenCount: Int
+    @Binding var selectedItemID: ContextWeightItem.ID?
+    @Binding var hoveredItemID: ContextWeightItem.ID?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(contextWeightText("Largest files by application", "按应用查看最大文件", language: store.appLanguage))
+                    .font(.headline)
+                Text(contextWeightText("each app is sorted by estimated token share", "每个应用内按估算 token 占比排序", language: store.appLanguage))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+
+            if sections.isEmpty {
+                EmptyStateView(
+                    title: contextWeightText("No context files", "暂无上下文文件", language: store.appLanguage),
+                    message: contextWeightText("Refresh the index or enable more sources.", "刷新索引或启用更多来源。", language: store.appLanguage),
+                    systemImage: "tray"
+                )
+                .frame(minHeight: 320)
+            } else {
+                VStack(spacing: 12) {
+                    ForEach(sections) { section in
+                        ContextWeightSectionBlock(
+                            section: section,
+                            totalTokenCount: totalTokenCount,
+                            selectedItemID: $selectedItemID,
+                            hoveredItemID: $hoveredItemID
+                        )
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.38))
+        }
+    }
+}
+
+private struct ContextWeightSectionBlock: View {
+    @EnvironmentObject private var store: AssetStore
+    let section: ContextWeightSection
+    let totalTokenCount: Int
+    @Binding var selectedItemID: ContextWeightItem.ID?
+    @Binding var hoveredItemID: ContextWeightItem.ID?
+
+    private var visibleItems: [ContextWeightItem] {
+        Array(section.items.prefix(5))
+    }
+
+    private var remainingCount: Int {
+        max(0, section.items.count - visibleItems.count)
+    }
+
+    private var ownerShare: Double {
+        Double(section.tokenTotal) / Double(max(1, totalTokenCount))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 9) {
+                Image(systemName: contextWeightOwnerIcon(section.owner))
+                    .foregroundStyle(ownerTint(section.owner))
+                    .frame(width: 22)
+                Text(L10n.agentOwner(section.owner, language: store.appLanguage))
+                    .font(.callout.weight(.semibold))
+                CountBadge(count: section.items.count, tint: ownerTint(section.owner))
+                Spacer()
+                Text(contextWeightPercent(ownerShare))
+                    .font(.caption.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                Text(contextWeightCompactNumber(section.tokenTotal))
+                    .font(.caption2)
+                    .monospacedDigit()
+                    .foregroundStyle(.tertiary)
+            }
+
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color(nsColor: .separatorColor).opacity(0.16))
+                    Capsule()
+                        .fill(ownerTint(section.owner).gradient)
+                        .frame(width: max(4, proxy.size.width * CGFloat(max(0.01, min(1, ownerShare)))))
+                }
+            }
+            .frame(height: 5)
+
+            VStack(spacing: 7) {
+                ForEach(Array(visibleItems.enumerated()), id: \.element.id) { index, item in
+                    ContextWeightRow(
+                        rank: index + 1,
+                        item: item,
+                        share: Double(item.tokenCount) / Double(max(1, section.tokenTotal)),
+                        isSelected: selectedItemID == item.id,
+                        isHovered: hoveredItemID == item.id
+                    ) {
+                        selectedItemID = selectedItemID == item.id ? nil : item.id
+                    }
+                    .onHover { hovering in
+                        hoveredItemID = hovering ? item.id : nil
+                    }
+                }
+
+                if remainingCount > 0 {
+                    HStack(spacing: 8) {
+                        Image(systemName: "ellipsis")
+                        Text(contextWeightText(
+                            "\(remainingCount) smaller files in this application are hidden.",
+                            "此应用还有 \(remainingCount) 个更小的文件未展示。",
+                            language: store.appLanguage
+                        ))
+                        Spacer()
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                }
+            }
+        }
+        .padding(12)
+        .background(ownerTint(section.owner).opacity(0.055), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(ownerTint(section.owner).opacity(0.16))
+        }
+    }
+}
+
+private struct ContextWeightRow: View {
+    @EnvironmentObject private var store: AssetStore
+    let rank: Int
+    let item: ContextWeightItem
+    let share: Double
+    let isSelected: Bool
+    let isHovered: Bool
+    let action: () -> Void
+
+    private var tint: Color {
+        contextWeightTint(for: item)
+    }
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 9) {
+                HStack(alignment: .center, spacing: 12) {
+                    Text("\(rank)")
+                        .font(.caption.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(tint)
+                        .frame(width: 24, alignment: .trailing)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 7) {
+                            Text(item.asset.title)
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                            BadgeView(text: L10n.assetKind(item.asset.kind, language: store.appLanguage), tint: tint)
+                            if item.isPromptMaterial {
+                                BadgeView(text: "Prompt", tint: .blue)
+                            }
+                        }
+
+                        Text(item.asset.displayPath)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+
+                    Spacer(minLength: 10)
+
+                    VStack(alignment: .trailing, spacing: 3) {
+                        Text(contextWeightPercent(share))
+                            .font(.callout.weight(.semibold))
+                            .monospacedDigit()
+                        Text(contextWeightCompactNumber(item.tokenCount))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                    .frame(width: 62, alignment: .trailing)
+                }
+
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color(nsColor: .separatorColor).opacity(0.22))
+                        Capsule()
+                            .fill(tint.gradient)
+                            .frame(width: max(4, proxy.size.width * CGFloat(max(0.01, min(1, share)))))
+                    }
+                }
+                .frame(height: 6)
+            }
+            .padding(12)
+            .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke((isSelected || isHovered ? tint : Color(nsColor: .separatorColor)).opacity(isSelected ? 0.72 : 0.34), lineWidth: isSelected ? 1.5 : 1)
+            }
+            .shadow(color: .black.opacity(isSelected || isHovered ? 0.10 : 0.035), radius: isSelected || isHovered ? 10 : 4, y: isSelected || isHovered ? 6 : 2)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct ContextWeightDetailPanel: View {
+    @EnvironmentObject private var store: AssetStore
+    let item: ContextWeightItem?
+    let ownerTokenCount: Int
+    let totalTokenCount: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "sidebar.right")
+                    .foregroundStyle(.blue)
+                Text(contextWeightText("File detail", "文件详情", language: store.appLanguage))
+                    .font(.headline)
+                Spacer()
+            }
+
+            if let item {
+                let ownerShare = Double(item.tokenCount) / Double(max(1, ownerTokenCount))
+                let globalShare = Double(item.tokenCount) / Double(max(1, totalTokenCount))
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(item.asset.title)
+                        .font(.callout.weight(.semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 8) {
+                        BadgeView(text: L10n.agentOwner(item.asset.owner, language: store.appLanguage), tint: ownerTint(item.asset.owner))
+                        BadgeView(text: L10n.assetKind(item.asset.kind, language: store.appLanguage), tint: contextWeightTint(for: item))
+                        BadgeView(text: contextWeightPercent(ownerShare), tint: .blue)
+                    }
+
+                    PathPreviewLink(
+                        path: item.asset.path,
+                        font: .caption.monospaced(),
+                        foregroundColor: .secondary,
+                        lineLimit: 2,
+                        language: store.appLanguage
+                    )
+
+                    Divider()
+
+                    ContextWeightDetailMetric(label: "Token", value: contextWeightCompactNumber(item.tokenCount))
+                    ContextWeightDetailMetric(
+                        label: contextWeightText("In app", "应用内占比", language: store.appLanguage),
+                        value: contextWeightPercent(ownerShare)
+                    )
+                    ContextWeightDetailMetric(
+                        label: contextWeightText("Global", "全局占比", language: store.appLanguage),
+                        value: contextWeightPercent(globalShare)
+                    )
+                    ContextWeightDetailMetric(
+                        label: contextWeightText("Placement", "位置", language: store.appLanguage),
+                        value: contextWeightPlacementText(item, language: store.appLanguage)
+                    )
+
+                    if !item.asset.summary.isEmpty {
+                        Divider()
+                        Text(item.asset.summary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    if !item.asset.preview.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Divider()
+                        Text(contextWeightPreview(item.asset.preview))
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(8)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Button {
+                        store.focusContextAsset(path: item.asset.path)
+                    } label: {
+                        Label(contextWeightText("Open asset detail", "打开资产详情", language: store.appLanguage), systemImage: "arrow.right.circle")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                }
+            } else {
+                Text(contextWeightText(
+                    "Select a row to inspect why it takes context space.",
+                    "选择一行，查看它为什么占上下文空间。",
+                    language: store.appLanguage
+                ))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(16)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.38))
+        }
+    }
+}
+
+private struct ContextWeightDetailMetric: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 12)
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .monospacedDigit()
+                .lineLimit(2)
+                .multilineTextAlignment(.trailing)
+        }
+    }
+}
+
+private struct ContextWeightActionStrip: View {
+    @EnvironmentObject private var store: AssetStore
+    let snapshot: ContextOverviewSnapshot
+
+    var body: some View {
+        HStack(spacing: 10) {
+            PromptStackActionButton(
+                title: contextWeightText("Open full prompt preview", "打开完整 Prompt 预览", language: store.appLanguage),
+                detail: contextWeightText("map, copy, zoom", "地图、复制、缩放", language: store.appLanguage),
+                systemImage: "doc.text.magnifyingglass",
+                tint: .blue
+            ) {
+                store.showSystemPromptPreview()
+            }
+
+            PromptStackActionButton(
+                title: contextWeightText("Review one-sided memories", "检查单边记忆", language: store.appLanguage),
+                detail: "\(snapshot.oneSidedMemoryCount)",
+                systemImage: "arrow.left.arrow.right",
+                tint: snapshot.oneSidedMemoryCount > 0 ? .orange : .green
+            ) {
+                store.showMemories()
+            }
+
+            PromptStackActionButton(
+                title: contextWeightText("User skill groups", "用户 Skill 组", language: store.appLanguage),
+                detail: "\(snapshot.userCapabilityGroups)",
+                systemImage: "wand.and.stars",
+                tint: .teal
+            ) {
+                store.showCapabilities()
+            }
+
+            PromptStackActionButton(
+                title: contextWeightText("Export for LLM", "导出给 LLM", language: store.appLanguage),
+                detail: contextWeightText("Markdown handoff", "Markdown 交接包", language: store.appLanguage),
+                systemImage: "square.and.arrow.up",
+                tint: .purple
+            ) {
+                store.presentLLMContextPack(.currentView)
+            }
+        }
+    }
+}
+
+private struct PromptStackLayer: Identifiable {
+    let id: String
+    let surface: AgentOwner
+    let section: SystemPromptPreviewSection
+    let title: String
+    let subtitle: String
+    let routeDescription: String
+    let tint: Color
+    let systemImage: String
+
+    var itemCount: Int { section.items.count }
+    var tokenCount: Int { section.estimatedTokenCount }
+    var isPromptMaterial: Bool { section.isPromptMaterial }
+    var firstPath: String? { section.items.first?.asset.path }
+}
+
+private struct PromptStackExperience: View {
+    @EnvironmentObject private var store: AssetStore
+    let snapshot: ContextOverviewSnapshot
+    @Binding var selectedLayerID: PromptStackLayer.ID?
+    @Binding var hoveredLayerID: PromptStackLayer.ID?
+    let animateIn: Bool
+
+    private var allLayers: [PromptStackLayer] {
+        snapshot.promptPreviews.flatMap { promptStackLayers(for: $0, language: store.appLanguage) }
+    }
+
+    private var activeLayer: PromptStackLayer? {
+        let activeID = hoveredLayerID ?? selectedLayerID
+        guard let activeID else { return allLayers.first }
+        return allLayers.first { $0.id == activeID } ?? allLayers.first
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            PromptStackHero(snapshot: snapshot, animateIn: animateIn)
+
+            HStack(alignment: .top, spacing: 18) {
+                PromptStackWorkbench(
+                    snapshot: snapshot,
+                    selectedLayerID: $selectedLayerID,
+                    hoveredLayerID: $hoveredLayerID,
+                    animateIn: animateIn
+                )
+                .frame(minWidth: 560)
+
+                PromptStackLayerInspector(
+                    layer: activeLayer,
+                    lockedLayerID: selectedLayerID,
+                    snapshot: snapshot
+                )
+                .frame(width: 340)
+            }
+
+            PromptStackActionStrip(snapshot: snapshot)
+        }
+    }
+}
+
+private struct PromptStackHero: View {
+    @EnvironmentObject private var store: AssetStore
+    let snapshot: ContextOverviewSnapshot
+    let animateIn: Bool
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 18) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(.linearGradient(
+                        colors: [
+                            Color.blue.opacity(0.18),
+                            Color.indigo.opacity(0.11),
+                            Color.orange.opacity(0.12)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
+                Image(systemName: "rectangle.stack")
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundStyle(.blue)
+            }
+            .frame(width: 58, height: 58)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(promptStackTitle(language: store.appLanguage))
+                    .font(.title2.weight(.semibold))
+                Text(promptStackSubtitle(snapshot: snapshot, language: store.appLanguage))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 14)
+
+            HStack(spacing: 8) {
+                PromptStackMetric(
+                    title: promptStackText("Prompt", "提示词", language: store.appLanguage),
+                    value: snapshot.promptMaterialCount,
+                    systemImage: "text.alignleft",
+                    tint: .blue
+                )
+                PromptStackMetric(
+                    title: promptStackText("Registry", "注册表", language: store.appLanguage),
+                    value: snapshot.registryItemCount,
+                    systemImage: "list.bullet.rectangle",
+                    tint: .orange
+                )
+                PromptStackMetric(
+                    title: "Token",
+                    value: snapshot.estimatedTokenCount,
+                    systemImage: "number",
+                    tint: .secondary
+                )
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.35))
+        }
+        .opacity(animateIn ? 1 : 0)
+        .offset(y: animateIn ? 0 : 10)
+    }
+}
+
+private struct PromptStackMetric: View {
+    let title: String
+    let value: Int
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 5) {
+                Image(systemName: systemImage)
+                    .foregroundStyle(tint)
+                Text(title)
+                    .foregroundStyle(.secondary)
+            }
+            .font(.caption2.weight(.medium))
+
+            Text(promptStackCompactNumber(value))
+                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
+        .frame(minWidth: 92, alignment: .leading)
+        .background(tint.opacity(0.09), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct PromptStackWorkbench: View {
+    @EnvironmentObject private var store: AssetStore
+    let snapshot: ContextOverviewSnapshot
+    @Binding var selectedLayerID: PromptStackLayer.ID?
+    @Binding var hoveredLayerID: PromptStackLayer.ID?
+    let animateIn: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(promptStackText("Live prompt stack", "实时 Prompt 堆栈", language: store.appLanguage))
+                    .font(.headline)
+                Text(promptStackText("click to pin a layer", "点击锁定一层", language: store.appLanguage))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+
+            HStack(alignment: .top, spacing: 14) {
+                ForEach(snapshot.promptPreviews, id: \.surface) { preview in
+                    PromptStackColumn(
+                        preview: preview,
+                        selectedLayerID: $selectedLayerID,
+                        hoveredLayerID: $hoveredLayerID,
+                        animateIn: animateIn
+                    )
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.38))
+        }
+    }
+}
+
+private struct PromptStackColumn: View {
+    @EnvironmentObject private var store: AssetStore
+    let preview: SystemPromptPreview
+    @Binding var selectedLayerID: PromptStackLayer.ID?
+    @Binding var hoveredLayerID: PromptStackLayer.ID?
+    let animateIn: Bool
+
+    private var layers: [PromptStackLayer] {
+        promptStackLayers(for: preview, language: store.appLanguage)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 9) {
+                Image(systemName: promptStackSurfaceIcon(preview.surface))
+                    .foregroundStyle(ownerTint(preview.surface))
+                    .frame(width: 22)
+                Text(promptStackSurfaceTitle(preview.surface, language: store.appLanguage))
+                    .font(.headline)
+                CountBadge(count: preview.totalItemCount, tint: ownerTint(preview.surface))
+                Spacer()
+            }
+
+            if layers.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "tray")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                    Text(promptStackText("No visible context", "没有可见上下文", language: store.appLanguage))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, minHeight: 260)
+            } else {
+                VStack(spacing: -8) {
+                    ForEach(Array(layers.prefix(9).enumerated()), id: \.element.id) { index, layer in
+                        PromptStackPlate(
+                            layer: layer,
+                            depth: index,
+                            isSelected: selectedLayerID == layer.id,
+                            isHovered: hoveredLayerID == layer.id,
+                            animateIn: animateIn
+                        ) {
+                            selectedLayerID = selectedLayerID == layer.id ? nil : layer.id
+                        }
+                        .onHover { hovering in
+                            hoveredLayerID = hovering ? layer.id : nil
+                        }
+                    }
+
+                    if layers.count > 9 {
+                        PromptStackOverflowRow(
+                            hiddenCount: layers.count - 9,
+                            language: store.appLanguage
+                        )
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(ownerTint(preview.surface).opacity(0.055), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(ownerTint(preview.surface).opacity(0.18))
+        }
+    }
+}
+
+private struct PromptStackPlate: View {
+    let layer: PromptStackLayer
+    let depth: Int
+    let isSelected: Bool
+    let isHovered: Bool
+    let animateIn: Bool
+    let action: () -> Void
+
+    private var lift: CGFloat {
+        isSelected || isHovered ? -3 : 0
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .center, spacing: 11) {
+                Image(systemName: layer.systemImage)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(layer.tint)
+                    .frame(width: 28, height: 28)
+                    .background(layer.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text(layer.title)
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        if layer.isPromptMaterial {
+                            BadgeView(text: "prompt", tint: .blue)
+                        }
+                    }
+
+                    Text(layer.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text("\(layer.itemCount)")
+                        .font(.caption.weight(.semibold))
+                        .monospacedDigit()
+                    Text(promptStackCompactNumber(layer.tokenCount))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke((isSelected || isHovered ? layer.tint : Color(nsColor: .separatorColor)).opacity(isSelected ? 0.72 : 0.34), lineWidth: isSelected ? 1.5 : 1)
+            }
+            .shadow(color: .black.opacity(isSelected || isHovered ? 0.13 : 0.055), radius: isSelected || isHovered ? 12 : 6, y: isSelected || isHovered ? 7 : 3)
+            .offset(x: CGFloat(depth % 3) * 5, y: lift)
+            .scaleEffect(animateIn ? 1 : 0.985, anchor: .top)
+            .opacity(animateIn ? 1 : 0)
+            .animation(.easeOut(duration: 0.22), value: isSelected)
+            .animation(.easeOut(duration: 0.16), value: isHovered)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct PromptStackOverflowRow: View {
+    let hiddenCount: Int
+    let language: AppLanguage
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "ellipsis")
+                .foregroundStyle(.secondary)
+            Text(promptStackText("+ \(hiddenCount) more layers in full preview", "+ \(hiddenCount) 层在完整预览中", language: language))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.72), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct PromptStackLayerInspector: View {
+    @EnvironmentObject private var store: AssetStore
+    let layer: PromptStackLayer?
+    let lockedLayerID: PromptStackLayer.ID?
+    let snapshot: ContextOverviewSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: lockedLayerID == nil ? "cursorarrow.rays" : "pin")
+                    .foregroundStyle(.blue)
+                Text(promptStackText("Layer detail", "层详情", language: store.appLanguage))
+                    .font(.headline)
+                Spacer()
+            }
+
+            if let layer {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: layer.systemImage)
+                            .foregroundStyle(layer.tint)
+                            .frame(width: 24)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(layer.title)
+                                .font(.callout.weight(.semibold))
+                                .fixedSize(horizontal: false, vertical: true)
+                            Text(promptStackSurfaceTitle(layer.surface, language: store.appLanguage))
+                                .font(.caption)
+                                .foregroundStyle(ownerTint(layer.surface))
+                        }
+                    }
+
+                    HStack(spacing: 8) {
+                        BadgeView(
+                            text: L10n.loadDestination(layer.section.destination, language: store.appLanguage),
+                            tint: layer.tint
+                        )
+                        BadgeView(
+                            text: layer.isPromptMaterial
+                                ? promptStackText("enters prompt", "进入 Prompt", language: store.appLanguage)
+                                : promptStackText("registry/support", "注册/支持", language: store.appLanguage),
+                            tint: layer.isPromptMaterial ? .blue : .secondary
+                        )
+                    }
+
+                    Text(layer.routeDescription)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Divider()
+
+                    PromptStackInspectorMetricRow(
+                        label: promptStackText("Items", "项目", language: store.appLanguage),
+                        value: "\(layer.itemCount)"
+                    )
+                    PromptStackInspectorMetricRow(
+                        label: "Token",
+                        value: promptStackCompactNumber(layer.tokenCount)
+                    )
+
+                    if !layer.section.items.isEmpty {
+                        Divider()
+                        Text(promptStackText("Source samples", "来源样例", language: store.appLanguage))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+
+                        ForEach(layer.section.items.prefix(4)) { item in
+                            Button {
+                                store.focusContextAsset(path: item.asset.path)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(item.asset.title)
+                                        .font(.caption.weight(.medium))
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(1)
+                                    PathPreviewLink(
+                                        path: item.asset.path,
+                                        font: .caption2.monospaced(),
+                                        foregroundColor: .secondary,
+                                        language: store.appLanguage
+                                    )
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.vertical, 4)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            } else {
+                Text(promptStackText(
+                    "Hover or click a layer to inspect where it lands in the local prompt preview.",
+                    "悬浮或点击一层，查看它会落到本地 Prompt 预览的哪里。",
+                    language: store.appLanguage
+                ))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(16)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.38))
+        }
+    }
+}
+
+private struct PromptStackInspectorMetricRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .monospacedDigit()
+        }
+    }
+}
+
+private struct PromptStackActionStrip: View {
+    @EnvironmentObject private var store: AssetStore
+    let snapshot: ContextOverviewSnapshot
+
+    var body: some View {
+        HStack(spacing: 10) {
+            PromptStackActionButton(
+                title: promptStackText("Open full prompt preview", "打开完整 Prompt 预览", language: store.appLanguage),
+                detail: promptStackText("map, copy, zoom", "地图、复制、缩放", language: store.appLanguage),
+                systemImage: "doc.text.magnifyingglass",
+                tint: .blue
+            ) {
+                store.showSystemPromptPreview()
+            }
+
+            PromptStackActionButton(
+                title: promptStackText("Review one-sided memories", "检查单边记忆", language: store.appLanguage),
+                detail: "\(snapshot.oneSidedMemoryCount)",
+                systemImage: "arrow.left.arrow.right",
+                tint: snapshot.oneSidedMemoryCount > 0 ? .orange : .green
+            ) {
+                store.showMemories()
+            }
+
+            PromptStackActionButton(
+                title: promptStackText("User skill groups", "用户 Skill 组", language: store.appLanguage),
+                detail: "\(snapshot.userCapabilityGroups)",
+                systemImage: "wand.and.stars",
+                tint: .teal
+            ) {
+                store.showCapabilities()
+            }
+        }
+    }
+}
+
+private struct PromptStackActionButton: View {
+    let title: String
+    let detail: String
+    let systemImage: String
+    let tint: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: systemImage)
+                    .foregroundStyle(tint)
+                    .frame(width: 24)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(13)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(tint.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(tint.opacity(0.16))
+            }
+        }
+        .buttonStyle(.plain)
+    }
 }
 
 private struct ContextBriefHero: View {
@@ -618,6 +1759,413 @@ private struct BriefCardModifier: ViewModifier {
 private extension View {
     func briefCard() -> some View {
         modifier(BriefCardModifier())
+    }
+}
+
+private func contextWeightItems(from items: [ContextCatalogItem]) -> [ContextWeightItem] {
+    var grouped: [String: [ContextCatalogItem]] = [:]
+    for item in items {
+        grouped[item.asset.path, default: []].append(item)
+    }
+
+    return grouped.values.compactMap { groupedItems in
+        guard let first = groupedItems.first else { return nil }
+        let destinations = contextWeightUnique(groupedItems.map(\.loadRoute.destination)) {
+            contextWeightDestinationSortIndex($0) < contextWeightDestinationSortIndex($1)
+        }
+        let layers = contextWeightUnique(groupedItems.map(\.layer)) {
+            $0.sortIndex < $1.sortIndex
+        }
+        let surfaces = contextWeightUnique(groupedItems.flatMap(\.surfaces)) {
+            $0.rawValue < $1.rawValue
+        }
+        let roles = contextWeightUnique(groupedItems.map(\.role)) {
+            contextWeightRoleSortIndex($0) < contextWeightRoleSortIndex($1)
+        }
+
+        return ContextWeightItem(
+            id: first.asset.path,
+            asset: first.asset,
+            tokenCount: contextWeightEstimatedTokens(for: first.asset),
+            destinations: destinations,
+            layers: layers,
+            surfaces: surfaces,
+            roles: roles
+        )
+    }
+    .sorted { left, right in
+        if left.tokenCount != right.tokenCount {
+            return left.tokenCount > right.tokenCount
+        }
+        return left.asset.displayPath.localizedStandardCompare(right.asset.displayPath) == .orderedAscending
+    }
+}
+
+private func contextWeightSections(from items: [ContextWeightItem]) -> [ContextWeightSection] {
+    Dictionary(grouping: items, by: { $0.asset.owner })
+        .map { owner, ownerItems in
+            let sortedItems = ownerItems.sorted { left, right in
+                if left.tokenCount != right.tokenCount {
+                    return left.tokenCount > right.tokenCount
+                }
+                return left.asset.displayPath.localizedStandardCompare(right.asset.displayPath) == .orderedAscending
+            }
+
+            return ContextWeightSection(
+                owner: owner,
+                items: sortedItems,
+                tokenTotal: sortedItems.reduce(0) { $0 + $1.tokenCount }
+            )
+        }
+        .sorted { left, right in
+            let leftIndex = contextWeightOwnerSortIndex(left.owner)
+            let rightIndex = contextWeightOwnerSortIndex(right.owner)
+            if leftIndex != rightIndex {
+                return leftIndex < rightIndex
+            }
+            if left.tokenTotal != right.tokenTotal {
+                return left.tokenTotal > right.tokenTotal
+            }
+            return left.owner.rawValue < right.owner.rawValue
+        }
+}
+
+private func contextWeightUnique<T: Hashable>(_ values: [T], sortedBy: (T, T) -> Bool) -> [T] {
+    Array(Set(values)).sorted(by: sortedBy)
+}
+
+private func contextWeightEstimatedTokens(for asset: AgentAsset) -> Int {
+    let text = [
+        asset.title,
+        asset.summary,
+        asset.trigger ?? "",
+        asset.preview
+    ]
+    .joined(separator: "\n")
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+
+    return max(1, text.count / 4)
+}
+
+private func contextWeightRoleSortIndex(_ role: AgentContextRole) -> Int {
+    switch role {
+    case .memory:
+        0
+    case .capability:
+        1
+    }
+}
+
+private func contextWeightDestinationSortIndex(_ destination: ContextLoadDestination) -> Int {
+    switch destination {
+    case .systemPrompt:
+        0
+    case .memoryBlock:
+        1
+    case .projectContextBlock:
+        2
+    case .workspaceContextBlock:
+        3
+    case .pluginInstructionBlock:
+        4
+    case .skillRegistry:
+        5
+    case .commandRegistry:
+        6
+    case .toolRegistry:
+        7
+    case .pluginRegistry:
+        8
+    case .configuration:
+        9
+    case .sessionArchive:
+        10
+    case .supportFile:
+        11
+    case .indexOnly:
+        12
+    }
+}
+
+private func contextWeightOwnerSortIndex(_ owner: AgentOwner) -> Int {
+    switch owner {
+    case .claude:
+        0
+    case .codex:
+        1
+    case .agents:
+        2
+    case .project:
+        3
+    case .unknown:
+        4
+    }
+}
+
+private func contextWeightOwnerIcon(_ owner: AgentOwner) -> String {
+    switch owner {
+    case .claude:
+        "terminal"
+    case .codex:
+        "cube.transparent"
+    case .agents:
+        "person.2.wave.2"
+    case .project:
+        "folder"
+    case .unknown:
+        "questionmark.folder"
+    }
+}
+
+private func contextWeightTitle(language: AppLanguage) -> String {
+    contextWeightText("Context Weight by App", "按应用查看上下文占比", language: language)
+}
+
+private func contextWeightSubtitle(snapshot: ContextOverviewSnapshot, language: AppLanguage) -> String {
+    if snapshot.rankedContextFiles.isEmpty {
+        return contextWeightText(
+            "Refresh the index to see which local files take the most prompt-preview space.",
+            "刷新索引后，这里会显示哪些本地文件最占 Prompt 预览空间。",
+            language: language
+        )
+    }
+
+    let topTitle = snapshot.rankedContextFiles.first?.asset.title ?? ""
+    return contextWeightText(
+        "Grouped by app, then ranked by estimated token share so oversized memories, skills, and registries surface first.",
+        "先按应用分组，再按估算 token 占比排序。当前全局第一名：\(topTitle)",
+        language: language
+    )
+}
+
+private func contextWeightText(_ english: String, _ simplifiedChinese: String, language: AppLanguage) -> String {
+    switch language {
+    case .english:
+        english
+    case .simplifiedChinese:
+        simplifiedChinese
+    }
+}
+
+private func contextWeightCompactNumber(_ value: Int) -> String {
+    if value >= 1_000_000 {
+        return String(format: "%.1fM", Double(value) / 1_000_000)
+    }
+    if value >= 10_000 {
+        return String(format: "%.1fk", Double(value) / 1_000)
+    }
+    return "\(value)"
+}
+
+private func contextWeightPercent(_ value: Double) -> String {
+    if value >= 0.995 {
+        return "100%"
+    }
+    if value >= 0.1 {
+        return "\(Int((value * 100).rounded()))%"
+    }
+    return String(format: "%.1f%%", value * 100)
+}
+
+private func contextWeightTint(for item: ContextWeightItem) -> Color {
+    if item.isPromptMaterial {
+        return .blue
+    }
+    if item.destinations.contains(.toolRegistry) {
+        return .orange
+    }
+    if item.destinations.contains(.skillRegistry) {
+        return .teal
+    }
+    return ownerTint(item.asset.owner)
+}
+
+private func contextWeightPlacementText(_ item: ContextWeightItem, language: AppLanguage) -> String {
+    item.destinations
+        .prefix(2)
+        .map { L10n.loadDestination($0, language: language) }
+        .joined(separator: " / ")
+}
+
+private func contextWeightPreview(_ preview: String) -> String {
+    let text = preview.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard text.count > 520 else { return text }
+    return String(text.prefix(520)).trimmingCharacters(in: .whitespacesAndNewlines) + "\n..."
+}
+
+private func promptStackLayers(for preview: SystemPromptPreview, language: AppLanguage) -> [PromptStackLayer] {
+    preview.sections.map { section in
+        let route = promptStackRoute(for: section)
+        return PromptStackLayer(
+            id: "\(preview.surface.rawValue)-\(section.id)",
+            surface: preview.surface,
+            section: section,
+            title: promptStackLayerTitle(section, language: language),
+            subtitle: "\(L10n.contextLayer(section.layer, language: language)) · \(L10n.contextRole(section.role, language: language))",
+            routeDescription: L10n.loadRouteDescription(route, language: language),
+            tint: promptStackDestinationTint(section.destination),
+            systemImage: promptStackDestinationIcon(section.destination)
+        )
+    }
+}
+
+private func promptStackRoute(for section: SystemPromptPreviewSection) -> ContextLoadRoute {
+    ContextLoadRoute(
+        role: section.role,
+        layer: section.layer,
+        surfaces: section.items.first?.surfaces ?? [],
+        destination: section.destination,
+        trigger: section.items.first?.loadRoute.trigger ?? .observatoryIndex,
+        skillInstallOrigin: section.items.first?.loadRoute.skillInstallOrigin
+    )
+}
+
+private func promptStackLayerTitle(_ section: SystemPromptPreviewSection, language: AppLanguage) -> String {
+    if section.items.count == 1, let item = section.items.first {
+        return item.asset.title
+    }
+
+    switch section.destination {
+    case .systemPrompt:
+        return promptStackText("Entry Instructions", "入口指令", language: language)
+    case .memoryBlock:
+        return promptStackText("Long-term Memory", "长期记忆", language: language)
+    case .projectContextBlock:
+        return promptStackText("Project Context", "项目上下文", language: language)
+    case .workspaceContextBlock:
+        return promptStackText("Workspace Context", "工作区上下文", language: language)
+    case .pluginInstructionBlock:
+        return promptStackText("Plugin Instructions", "插件指令", language: language)
+    case .skillRegistry:
+        return "Skill Registry"
+    case .commandRegistry:
+        return "Command Registry"
+    case .toolRegistry:
+        return "MCP Tools"
+    case .pluginRegistry:
+        return "Plugin Registry"
+    case .configuration:
+        return promptStackText("Configuration", "配置", language: language)
+    case .sessionArchive:
+        return promptStackText("Session Archive", "会话历史", language: language)
+    case .supportFile:
+        return promptStackText("Support Files", "支持文件", language: language)
+    case .indexOnly:
+        return promptStackText("Index-only", "仅索引", language: language)
+    }
+}
+
+private func promptStackDestinationTint(_ destination: ContextLoadDestination) -> Color {
+    switch destination {
+    case .systemPrompt:
+        .blue
+    case .memoryBlock:
+        .indigo
+    case .projectContextBlock, .workspaceContextBlock:
+        .teal
+    case .pluginInstructionBlock, .pluginRegistry:
+        .orange
+    case .skillRegistry:
+        .cyan
+    case .commandRegistry:
+        .pink
+    case .toolRegistry:
+        .orange
+    case .configuration:
+        .gray
+    case .sessionArchive:
+        .purple
+    case .supportFile, .indexOnly:
+        .secondary
+    }
+}
+
+private func promptStackDestinationIcon(_ destination: ContextLoadDestination) -> String {
+    switch destination {
+    case .systemPrompt:
+        "text.badge.checkmark"
+    case .memoryBlock:
+        "brain.head.profile"
+    case .projectContextBlock:
+        "folder"
+    case .workspaceContextBlock:
+        "square.grid.2x2"
+    case .pluginInstructionBlock:
+        "puzzlepiece.extension"
+    case .skillRegistry:
+        "wand.and.stars"
+    case .commandRegistry:
+        "terminal"
+    case .toolRegistry:
+        "point.3.connected.trianglepath.dotted"
+    case .pluginRegistry:
+        "shippingbox"
+    case .configuration:
+        "gearshape"
+    case .sessionArchive:
+        "clock.arrow.circlepath"
+    case .supportFile:
+        "doc.on.doc"
+    case .indexOnly:
+        "magnifyingglass"
+    }
+}
+
+private func promptStackSurfaceTitle(_ surface: AgentOwner, language: AppLanguage) -> String {
+    surface == .claude ? "Claude Code" : L10n.agentOwner(surface, language: language)
+}
+
+private func promptStackSurfaceIcon(_ surface: AgentOwner) -> String {
+    switch surface {
+    case .claude:
+        "terminal"
+    case .codex:
+        "cube.transparent"
+    case .agents:
+        "person.2.wave.2"
+    case .project:
+        "folder"
+    case .unknown:
+        "questionmark.folder"
+    }
+}
+
+private func promptStackTitle(language: AppLanguage) -> String {
+    promptStackText("Prompt Stack", "Prompt 堆栈", language: language)
+}
+
+private func promptStackSubtitle(snapshot: ContextOverviewSnapshot, language: AppLanguage) -> String {
+    if snapshot.promptMaterialCount == 0 && snapshot.registryItemCount == 0 {
+        return promptStackText(
+            "Refresh the index to build a local stack of files that can shape Claude Code and Codex behavior.",
+            "刷新索引后，这里会把影响 Claude Code 和 Codex 行为的本地文件堆成可检查的调用栈。",
+            language: language
+        )
+    }
+
+    return promptStackText(
+        "A debugger-style view of which local files become prompt material, registries, tools, or support context.",
+        "像调试器一样看清哪些本地文件会成为提示词材料、注册表、工具或支持上下文。",
+        language: language
+    )
+}
+
+private func promptStackCompactNumber(_ value: Int) -> String {
+    if value >= 1_000_000 {
+        return String(format: "%.1fM", Double(value) / 1_000_000)
+    }
+    if value >= 10_000 {
+        return String(format: "%.1fk", Double(value) / 1_000)
+    }
+    return "\(value)"
+}
+
+private func promptStackText(_ english: String, _ simplifiedChinese: String, language: AppLanguage) -> String {
+    switch language {
+    case .english:
+        english
+    case .simplifiedChinese:
+        simplifiedChinese
     }
 }
 

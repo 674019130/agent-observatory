@@ -1,3 +1,4 @@
+import AgentObservatoryCore
 import SwiftUI
 
 struct ContentView: View {
@@ -7,12 +8,18 @@ struct ContentView: View {
         Group {
             if store.selectedSection == .systemPromptPreview {
                 wideCanvasLayout
+            } else if store.selectedSection == .contextOverview {
+                contextOverviewCanvasLayout
             } else {
                 standardSplitLayout
             }
         }
         .toolbar {
             appToolbar
+        }
+        .sheet(item: $store.presentedLLMContextPackPreset) { preset in
+            LLMContextPackExportSheet(initialPreset: preset, language: store.appLanguage)
+                .environmentObject(store)
         }
     }
 
@@ -23,6 +30,16 @@ struct ContentView: View {
         } detail: {
             SystemPromptPreviewView()
                 .navigationSplitViewColumnWidth(min: 720, ideal: 1120)
+        }
+    }
+
+    private var contextOverviewCanvasLayout: some View {
+        NavigationSplitView {
+            SidebarView()
+                .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
+        } detail: {
+            ContextOverviewMergedView()
+                .navigationSplitViewColumnWidth(min: 820, ideal: 1180)
         }
     }
 
@@ -121,7 +138,14 @@ struct ContentView: View {
             .accessibilityLabel(store.t(.goBack))
         }
 
-        ToolbarItem(placement: .primaryAction) {
+        ToolbarItemGroup(placement: .primaryAction) {
+            Button {
+                store.presentLLMContextPack(.currentView)
+            } label: {
+                Label(contentText("LLM Export", "LLM 导出", language: store.appLanguage), systemImage: "square.and.arrow.up")
+            }
+            .help(contentText("Export current view as an LLM-friendly Markdown pack", "把当前视图导出成 LLM 友好的 Markdown 上下文包", language: store.appLanguage))
+
             scanToolbarButton
         }
 
@@ -185,5 +209,12 @@ struct ContentView: View {
 
     private var shouldShowContextOverviewInspector: Bool {
         store.selectedSection == .contextOverview && store.selectedAssetID == nil
+    }
+}
+
+private func contentText(_ english: String, _ simplifiedChinese: String, language: AppLanguage) -> String {
+    switch language {
+    case .english: english
+    case .simplifiedChinese: simplifiedChinese
     }
 }

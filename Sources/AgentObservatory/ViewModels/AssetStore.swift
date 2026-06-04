@@ -38,6 +38,7 @@ final class AssetStore: ObservableObject {
     @Published var organizerError: String?
     @Published var approvedOrganizationRecommendationIDs: Set<String> = []
     @Published var approvedCleanupGroupIDs: Set<String> = []
+    @Published var presentedLLMContextPackPreset: LLMContextPackPreset?
     @Published var selectedSection: WorkspaceSection = .contextOverview
     @Published private(set) var canGoBack = false
     @Published private(set) var projectRootPath: String?
@@ -358,8 +359,116 @@ final class AssetStore: ObservableObject {
         )
     }
 
+    var llmContextPackScopeTitle: String {
+        llmContextPackSectionTitle(selectedSection)
+    }
+
+    func presentLLMContextPack(_ preset: LLMContextPackPreset) {
+        presentedLLMContextPackPreset = preset
+    }
+
+    func llmContextPackMarkdown(options: LLMContextPackOptions) -> String {
+        LLMContextPackExporter().markdown(
+            scopeTitle: llmContextPackScopeTitle,
+            visibleAssets: llmContextPackVisibleAssets,
+            contextItems: llmContextPackContextItems,
+            selectedAsset: selectedAsset,
+            organizerRun: organizerRun,
+            skillTriggerConflicts: skillTriggerConflicts,
+            options: options
+        )
+    }
+
     func markOrganizerBriefCopied() {
         organizerStatus = t(.organizerBriefCopied)
+    }
+
+    private var llmContextPackVisibleAssets: [AgentAsset] {
+        switch selectedSection {
+        case .assets:
+            return filteredAssets
+        case .hidden:
+            return hiddenAssets
+        case .memories, .capabilities, .mcpTools, .assembly, .contextOverview, .systemPromptPreview:
+            return uniqueAssets(llmContextPackContextItems.map(\.asset))
+        case .triggerRadar:
+            return uniqueAssets(skillTriggerConflicts.flatMap { [$0.primaryAsset, $0.competingAsset] })
+        case .organizer:
+            let actionPaths = Set(organizerRun.actionPacks.flatMap(\.assetPaths))
+            guard !actionPaths.isEmpty else { return visibleAssets }
+            return visibleAssets.filter { actionPaths.contains($0.path) }
+        case .dashboard:
+            let riskPaths = Set(dashboardSummary.topRisks.map(\.assetPath))
+            guard !riskPaths.isEmpty else { return visibleAssets }
+            return visibleAssets.filter { riskPaths.contains($0.path) }
+        case .archive:
+            return []
+        }
+    }
+
+    private var llmContextPackContextItems: [ContextCatalogItem] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let items: [ContextCatalogItem]
+
+        switch selectedSection {
+        case .memories:
+            items = contextCatalog.memoryItems
+        case .capabilities:
+            items = visibleNonMCPCapabilityItems
+        case .mcpTools:
+            items = visibleMCPItems
+        case .assembly, .contextOverview, .systemPromptPreview:
+            items = contextCatalog.memoryItems + visibleCapabilityItems
+        case .triggerRadar:
+            let conflictAssets = skillTriggerConflicts.flatMap { [$0.primaryAsset, $0.competingAsset] }
+            return uniqueAssets(conflictAssets).map { asset in
+                let catalog = ContextCatalogAnalyzer().catalog(assets: [asset])
+                return catalog.memoryItems.first ?? catalog.capabilityItems.first
+            }
+            .compactMap { $0 }
+        default:
+            items = contextCatalog.memoryItems + visibleCapabilityItems
+        }
+
+        guard !query.isEmpty else { return uniqueContextItems(items) }
+        return uniqueContextItems(items.filter { $0.asset.matchesSearch(query: query) })
+    }
+
+    private func uniqueAssets(_ assets: [AgentAsset]) -> [AgentAsset] {
+        var seen: Set<String> = []
+        return assets.filter { asset in
+            guard !seen.contains(asset.path) else { return false }
+            seen.insert(asset.path)
+            return true
+        }
+    }
+
+    private func uniqueContextItems(_ items: [ContextCatalogItem]) -> [ContextCatalogItem] {
+        var seen: Set<String> = []
+        return items.filter { item in
+            guard !seen.contains(item.asset.path) else { return false }
+            seen.insert(item.asset.path)
+            return true
+        }
+    }
+
+    private func llmContextPackSectionTitle(_ section: WorkspaceSection) -> String {
+        switch (section, appLanguage) {
+        case (.triggerRadar, .simplifiedChinese): return "触发雷达"
+        case (.contextOverview, .simplifiedChinese): return "概览"
+        case (.memories, .simplifiedChinese): return "记忆"
+        case (.capabilities, .simplifiedChinese): return "能力"
+        case (.mcpTools, .simplifiedChinese): return "MCP"
+        case (.assembly, .simplifiedChinese): return "组装"
+        case (.systemPromptPreview, .simplifiedChinese): return "提示词预览"
+        case (.dashboard, .simplifiedChinese): return "诊断"
+        case (.organizer, .simplifiedChinese): return "AI 整理器"
+        case (.assets, .simplifiedChinese): return "资产"
+        case (.hidden, .simplifiedChinese): return "隐藏项目"
+        case (.archive, .simplifiedChinese): return "归档"
+        default:
+            return section.rawValue
+        }
     }
 
     func sourceExists(_ source: ScanSource) -> Bool {

@@ -21,6 +21,13 @@ struct AgentObservatoryApp: App {
         .defaultSize(width: 1320, height: 860)
         .commands {
             CommandGroup(after: .newItem) {
+                Button(appText("Export LLM Context Pack...", "导出 LLM 上下文包...", language: store.appLanguage)) {
+                    store.presentLLMContextPack(.currentView)
+                }
+                .keyboardShortcut("e", modifiers: [.command, .option])
+
+                Divider()
+
                 Button(store.t(.refresh)) {
                     store.scan()
                 }
@@ -91,13 +98,30 @@ struct AgentObservatoryApp: App {
     }
 }
 
+private func appText(_ english: String, _ simplifiedChinese: String, language: AppLanguage) -> String {
+    switch language {
+    case .english: english
+    case .simplifiedChinese: simplifiedChinese
+    }
+}
+
 private final class AgentObservatoryAppDelegate: NSObject, NSApplicationDelegate {
     @MainActor static var store: AssetStore?
-    @MainActor private var fallbackWindow: NSWindow?
+    @MainActor private var fallbackWindowController: NSWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
+        DispatchQueue.main.async {
+            Task { @MainActor in
+                self.ensureMainWindow()
+            }
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            Task { @MainActor in
+                self.ensureMainWindow()
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
             Task { @MainActor in
                 self.ensureMainWindow()
             }
@@ -105,18 +129,26 @@ private final class AgentObservatoryAppDelegate: NSObject, NSApplicationDelegate
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag {
-            Task { @MainActor in
-                self.ensureMainWindow()
-            }
+        Task { @MainActor in
+            self.ensureMainWindow()
         }
         return true
     }
 
     @MainActor
     private func ensureMainWindow() {
+        if let window = fallbackWindowController?.window, window.isVisible {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
         let hasVisibleMainWindow = NSApp.windows.contains { window in
-            window.isVisible && window.canBecomeKey
+            window.isVisible
+                && window.canBecomeKey
+                && window.styleMask.contains(.titled)
+                && window.frame.width >= 320
+                && window.frame.height >= 240
         }
         guard !hasVisibleMainWindow, let store = Self.store else { return }
 
@@ -128,9 +160,12 @@ private final class AgentObservatoryAppDelegate: NSObject, NSApplicationDelegate
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.minSize = NSSize(width: 1080, height: 720)
         window.setContentSize(NSSize(width: 1320, height: 860))
+        window.isReleasedWhenClosed = false
         window.center()
+        let controller = NSWindowController(window: window)
+        fallbackWindowController = controller
+        controller.showWindow(nil)
         window.makeKeyAndOrderFront(nil)
-        fallbackWindow = window
         NSApp.activate(ignoringOtherApps: true)
     }
 }
