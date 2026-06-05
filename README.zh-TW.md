@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="docs/assets/app-icon.png" width="128" height="128" alt="Agent Observatory 應用程式圖示">
-</p>
-
 <h1 align="center">Agent Observatory</h1>
 
 <p align="center">
@@ -42,17 +38,49 @@ memory、哪個 skill 會搶答、哪些 command 還引用舊路徑時，Agent O
 
 ## 介面預覽
 
-README 不再放靜態截圖，而是使用一張設計化的向量預覽圖來傳達產品氣質，同時避免
-暴露本機路徑、memory 或私有 agent 檔案。
+README 不再嵌入截圖或圖片。下面的預覽只使用 Markdown/HTML，所以在私有 repo、
+fork、release notes 和 LLM 閱讀器裡都不會出現圖片裂開的問題。
 
-<p align="center">
-  <img src="docs/assets/interface-preview.svg" width="960" alt="Agent Observatory 介面預覽">
-</p>
+<table>
+  <tr>
+    <td width="24%" valign="top">
+      <strong>Source List</strong><br>
+      <sub>為大型本機 agent 設定準備的安靜導航。</sub><br><br>
+      <kbd>概覽 1,056</kbd><br><br>
+      <kbd>記憶 185</kbd><br><br>
+      <kbd>能力 734</kbd><br><br>
+      <kbd>MCP 4</kbd><br><br>
+      <kbd>提示詞預覽 923</kbd>
+    </td>
+    <td width="46%" valign="top">
+      <strong>按應用查看上下文占比</strong><br>
+      <sub>按載入應用分組，優先暴露最占 Prompt 的檔案。</sub><br><br>
+      <strong>Claude Code</strong> <kbd>221</kbd> <kbd>19%</kbd><br>
+      <code>install-counts-cache</code> <kbd>Plugin</kbd><br>
+      <code>interactive-command-patterns</code> <kbd>Command</kbd><br><br>
+      <strong>Codex</strong> <kbd>625</kbd> <kbd>67%</kbd><br>
+      <code>browser-client</code> <kbd>Script</kbd><br>
+      <code>raw_memories.md</code> <kbd>Memory</kbd><br><br>
+      <strong>Agents</strong> <kbd>77</kbd> <kbd>13%</kbd><br>
+      <code>macos-design-guidelines</code> <kbd>Skill</kbd>
+    </td>
+    <td width="30%" valign="top">
+      <strong>固定 Inspector</strong><br>
+      <sub>中間列表捲動時，右側詳情始終留在視口內。</sub><br><br>
+      <kbd>Codex</kbd> <kbd>Script</kbd> <kbd>5.5%</kbd><br><br>
+      <code>~/.codex/plugins/.../browser-client.mjs</code><br><br>
+      Token: <strong>55.0k</strong><br>
+      全域占比: <strong>3.7%</strong><br>
+      位置: <strong>支援檔案</strong><br><br>
+      <kbd>打開資產詳情</kbd>
+    </td>
+  </tr>
+</table>
 
 這個介面按原生 Mac 控制台來設計：左側是安靜的 source list，中間是高密度的
-上下文占比排序，右側是捲動時始終留在視口內的 inspector。玻璃質感面板、緊湊
-badge 和 Finder-first 的檔案動作，讓很大的 Claude Code / Codex 設定也能保持
-可掃描、可理解。
+上下文占比排序，右側是捲動時始終留在視口內的 inspector。緊湊 badge 和
+Finder-first 的檔案動作，讓很大的 Claude Code / Codex 設定也能保持可掃描、
+可理解。
 
 ## 功能
 
