@@ -38,49 +38,14 @@ memory、哪个 skill 会抢答、哪些命令还引用旧路径时，Agent Obse
 
 ## 界面预览
 
-README 不再嵌入截图或图片。下面的预览只使用 Markdown/HTML，所以在私有仓库、
-fork、release notes 和 LLM 阅读器里都不会出现图片裂开的问题。
-
-<table>
-  <tr>
-    <td width="24%" valign="top">
-      <strong>Source List</strong><br>
-      <sub>为大型本地 agent 配置准备的安静导航。</sub><br><br>
-      <kbd>概览 1,056</kbd><br><br>
-      <kbd>记忆 185</kbd><br><br>
-      <kbd>能力 734</kbd><br><br>
-      <kbd>MCP 4</kbd><br><br>
-      <kbd>提示词预览 923</kbd>
-    </td>
-    <td width="46%" valign="top">
-      <strong>按应用查看上下文占比</strong><br>
-      <sub>按加载应用分组，优先暴露最占 Prompt 的文件。</sub><br><br>
-      <strong>Claude Code</strong> <kbd>221</kbd> <kbd>19%</kbd><br>
-      <code>install-counts-cache</code> <kbd>Plugin</kbd><br>
-      <code>interactive-command-patterns</code> <kbd>Command</kbd><br><br>
-      <strong>Codex</strong> <kbd>625</kbd> <kbd>67%</kbd><br>
-      <code>browser-client</code> <kbd>Script</kbd><br>
-      <code>raw_memories.md</code> <kbd>Memory</kbd><br><br>
-      <strong>Agents</strong> <kbd>77</kbd> <kbd>13%</kbd><br>
-      <code>macos-design-guidelines</code> <kbd>Skill</kbd>
-    </td>
-    <td width="30%" valign="top">
-      <strong>固定 Inspector</strong><br>
-      <sub>中间列表滚动时，右侧详情始终留在视口内。</sub><br><br>
-      <kbd>Codex</kbd> <kbd>Script</kbd> <kbd>5.5%</kbd><br><br>
-      <code>~/.codex/plugins/.../browser-client.mjs</code><br><br>
-      Token: <strong>55.0k</strong><br>
-      全局占比: <strong>3.7%</strong><br>
-      位置: <strong>支持文件</strong><br><br>
-      <kbd>打开资产详情</kbd>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/assets/interface-preview.png" width="960" alt="Agent Observatory 记忆 Inspector 界面预览">
+</p>
 
 这个界面按原生 Mac 控制台来设计：左侧是安静的 source list，中间是高密度的
-上下文占比排序，右侧是滚动时始终留在视口内的 inspector。紧凑 badge 和
-Finder-first 的文件动作，让很大的 Claude Code / Codex 配置也能保持可扫描、
-可理解。
+上下文卡片，右侧是滚动时始终留在视口内的 inspector。紧凑 badge、路径预览、
+迁移状态和 Finder-first 的文件动作，让很大的 Claude Code / Codex 配置也能保持
+可扫描、可理解。
 
 ## 功能
 

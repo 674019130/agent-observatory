@@ -48,10 +48,10 @@ cover Settings -> Sources, context browser selection, path previews, Finder
 opening, asset filter layout, copy and migration previews, OpenAI explanation,
 and release artifact metadata.
 
-If the release changes a primary screen, refresh the README interface preview
-copy. Keep it image-free so private repos, forks, release notes, and LLM readers
-do not show broken screenshots or expose real local paths, private repo names,
-browser content, or menu bar state.
+If the release changes a primary screen, refresh the single README preview image
+at `docs/assets/interface-preview.png`. Crop to the app window, keep the file
+small enough for GitHub README rendering, and avoid exposing unrelated browser
+content or menu bar state.
 
 For changes that affect source discovery, confirm Settings -> Sources still
 shows the expected Project Folder and source list. The Project Folder controls

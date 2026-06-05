@@ -40,50 +40,14 @@ losing them.
 
 ## Interface Preview
 
-No screenshots are embedded in the README. The preview below is built from
-plain Markdown/HTML so it works in private repos, forks, release notes, and LLM
-readers without broken image links.
-
-<table>
-  <tr>
-    <td width="24%" valign="top">
-      <strong>Source List</strong><br>
-      <sub>Quiet native navigation for large local agent setups.</sub><br><br>
-      <kbd>Overview 1,056</kbd><br><br>
-      <kbd>Memories 185</kbd><br><br>
-      <kbd>Capabilities 734</kbd><br><br>
-      <kbd>MCP 4</kbd><br><br>
-      <kbd>Prompt Preview 923</kbd>
-    </td>
-    <td width="46%" valign="top">
-      <strong>Context Weight by App</strong><br>
-      <sub>Largest prompt files grouped by the app that loads them.</sub><br><br>
-      <strong>Claude Code</strong> <kbd>221</kbd> <kbd>19%</kbd><br>
-      <code>install-counts-cache</code> <kbd>Plugin</kbd><br>
-      <code>interactive-command-patterns</code> <kbd>Command</kbd><br><br>
-      <strong>Codex</strong> <kbd>625</kbd> <kbd>67%</kbd><br>
-      <code>browser-client</code> <kbd>Script</kbd><br>
-      <code>raw_memories.md</code> <kbd>Memory</kbd><br><br>
-      <strong>Agents</strong> <kbd>77</kbd> <kbd>13%</kbd><br>
-      <code>macos-design-guidelines</code> <kbd>Skill</kbd>
-    </td>
-    <td width="30%" valign="top">
-      <strong>Fixed Inspector</strong><br>
-      <sub>Details stay visible while the ranking scrolls.</sub><br><br>
-      <kbd>Codex</kbd> <kbd>Script</kbd> <kbd>5.5%</kbd><br><br>
-      <code>~/.codex/plugins/.../browser-client.mjs</code><br><br>
-      Token: <strong>55.0k</strong><br>
-      Global share: <strong>3.7%</strong><br>
-      Placement: <strong>Support file</strong><br><br>
-      <kbd>Open Asset Detail</kbd>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/assets/interface-preview.png" width="960" alt="Agent Observatory memory inspector interface preview">
+</p>
 
 The app is designed as a native Mac control surface: a quiet source-list
-sidebar, dense context ranking in the center, and a fixed inspector that stays
-visible while you scroll. Compact badges and Finder-first file actions keep
-large Claude Code and Codex setups scannable.
+sidebar, context cards in the center, and a fixed inspector that stays visible
+while you scroll. Compact badges, path previews, migration status, and
+Finder-first actions keep large Claude Code and Codex setups scannable.
 
 ## Features
 
