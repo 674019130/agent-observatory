@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="#样例图片">样例图片</a>
+  <a href="#界面预览">界面预览</a>
   ·
   <a href="#快速开始">快速开始</a>
   ·
@@ -40,17 +40,19 @@ memories、rules、MCP 配置和项目级说明集中到一个地方，帮助你
 memory、哪个 skill 会抢答、哪些命令还引用旧路径时，Agent Observatory 可以
 做聚焦扫描、分类、解释、漂移检测，并提供隐藏和归档这类可恢复的整理动作。
 
-## 样例图片
+## 界面预览
 
-以下图片使用脱敏示例数据和虚构路径，不会暴露本机真实文件。
+README 不再放静态截图，而是使用一张设计化的矢量预览图来传达产品气质，同时避免
+暴露本机路径、memory 或私有 agent 文件。
 
-| 上下文观察台 | 资产详情 |
-|---|---|
-| [![上下文观察台示例](docs/assets/sample-overview.png)](docs/assets/sample-overview.png) | [![资产详情示例](docs/assets/sample-assets.png)](docs/assets/sample-assets.png) |
+<p align="center">
+  <img src="docs/assets/interface-preview.svg" width="960" alt="Agent Observatory 界面预览">
+</p>
 
-| 触发雷达 | AI 整理器 |
-|---|---|
-| [![触发雷达示例](docs/assets/sample-trigger-radar.png)](docs/assets/sample-trigger-radar.png) | [![AI 整理器示例](docs/assets/sample-ai-organizer.png)](docs/assets/sample-ai-organizer.png) |
+这个界面按原生 Mac 控制台来设计：左侧是安静的 source list，中间是高密度的
+上下文占比排序，右侧是滚动时始终留在视口内的 inspector。玻璃质感面板、紧凑
+badge 和 Finder-first 的文件动作，让很大的 Claude Code / Codex 配置也能保持
+可扫描、可理解。
 
 ## 功能
 

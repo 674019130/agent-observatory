@@ -11,7 +11,7 @@
 <p align="center">
   <a href="#features">Features</a>
   ·
-  <a href="#screenshots">Screenshots</a>
+  <a href="#interface-preview">Interface Preview</a>
   ·
   <a href="#quick-start">Quick Start</a>
   ·
@@ -42,18 +42,21 @@ scans a focused set of local directories, classifies the files it finds, explain
 what they do, highlights drift, and lets you hide or archive files without
 losing them.
 
-## Screenshots
+## Interface Preview
 
-These sample images use sanitized demo data and paths so the public README does
-not expose anyone's local machine.
+Instead of static screenshots, the README uses a stylized vector preview that
+shows the product shape without exposing local paths, memories, or private
+agent files.
 
-| Context observatory | Asset inspector |
-|---|---|
-| [![Context observatory sample](docs/assets/sample-overview.png)](docs/assets/sample-overview.png) | [![Asset inspector sample](docs/assets/sample-assets.png)](docs/assets/sample-assets.png) |
+<p align="center">
+  <img src="docs/assets/interface-preview.svg" width="960" alt="Stylized Agent Observatory interface preview">
+</p>
 
-| Trigger radar | AI organizer |
-|---|---|
-| [![Trigger radar sample](docs/assets/sample-trigger-radar.png)](docs/assets/sample-trigger-radar.png) | [![AI organizer sample](docs/assets/sample-ai-organizer.png)](docs/assets/sample-ai-organizer.png) |
+The app is designed as a native Mac control surface: a quiet source-list
+sidebar, dense context ranking in the center, and a fixed inspector that stays
+visible while you scroll. The UI favors glassy panels, compact badges, and
+Finder-first file actions so large Claude Code and Codex setups still feel
+scannable.
 
 ## Features
 

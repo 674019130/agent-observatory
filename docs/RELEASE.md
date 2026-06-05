@@ -48,9 +48,10 @@ cover Settings -> Sources, context browser selection, path previews, Finder
 opening, asset filter layout, copy and migration previews, OpenAI explanation,
 and release artifact metadata.
 
-If the release changes a primary screen, refresh the sanitized README screenshots
-under `docs/assets/` before publishing. Do not use a live screenshot that exposes
-real local paths, private repo names, browser content, or menu bar state.
+If the release changes a primary screen, refresh the stylized README interface
+preview under `docs/assets/interface-preview.svg` before publishing. Do not use a
+live screenshot that exposes real local paths, private repo names, browser
+content, or menu bar state.
 
 For changes that affect source discovery, confirm Settings -> Sources still
 shows the expected Project Folder and source list. The Project Folder controls
