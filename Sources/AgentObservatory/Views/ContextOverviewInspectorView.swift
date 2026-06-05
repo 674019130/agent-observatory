@@ -13,19 +13,13 @@ struct ContextOverviewInspectorView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                ContextWeightRankingExperience(
-                    snapshot: snapshot,
-                    selectedItemID: $selectedWeightItemID,
-                    hoveredItemID: $hoveredWeightItemID,
-                    animateIn: animateIn
-                )
-            }
-            .padding(.horizontal, 28)
-            .padding(.vertical, 24)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-        }
+        ContextWeightRankingExperience(
+            snapshot: snapshot,
+            selectedItemID: $selectedWeightItemID,
+            hoveredItemID: $hoveredWeightItemID,
+            animateIn: animateIn
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle(contextWeightTitle(language: store.appLanguage))
         .onAppear {
             withAnimation(.easeOut(duration: 0.65)) {
@@ -217,27 +211,40 @@ private struct ContextWeightRankingExperience: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            ContextWeightHero(snapshot: snapshot, animateIn: animateIn)
+        HStack(alignment: .top, spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    ContextWeightHero(snapshot: snapshot, animateIn: animateIn)
 
-            HStack(alignment: .top, spacing: 18) {
-                ContextWeightRankingList(
-                    sections: snapshot.rankedContextSections,
-                    totalTokenCount: snapshot.rankedTokenTotal,
-                    selectedItemID: $selectedItemID,
-                    hoveredItemID: $hoveredItemID
-                )
-                .frame(minWidth: 560)
+                    ContextWeightRankingList(
+                        sections: snapshot.rankedContextSections,
+                        totalTokenCount: snapshot.rankedTokenTotal,
+                        selectedItemID: $selectedItemID,
+                        hoveredItemID: $hoveredItemID
+                    )
+                    .frame(minWidth: 560)
 
-                ContextWeightDetailPanel(
-                    item: activeItem,
-                    ownerTokenCount: activeOwnerTokenTotal,
-                    totalTokenCount: snapshot.rankedTokenTotal
-                )
-                .frame(width: 360)
+                    ContextWeightActionStrip(snapshot: snapshot)
+                }
+                .padding(.horizontal, 28)
+                .padding(.vertical, 24)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            ContextWeightActionStrip(snapshot: snapshot)
+            Divider()
+
+            ContextWeightDetailPanel(
+                item: activeItem,
+                ownerTokenCount: activeOwnerTokenTotal,
+                totalTokenCount: snapshot.rankedTokenTotal
+            )
+            .frame(width: 360)
+            .padding(.leading, 16)
+            .padding(.trailing, 22)
+            .padding(.vertical, 24)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .background(Color(nsColor: .windowBackgroundColor))
         }
     }
 }
@@ -253,30 +260,33 @@ private struct ContextWeightHero: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 18) {
+        HStack(alignment: .center, spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(Color.blue.opacity(0.12))
                 Image(systemName: "list.number")
-                    .font(.system(size: 28, weight: .semibold))
+                    .font(.system(size: 23, weight: .semibold))
                     .foregroundStyle(.blue)
             }
-            .frame(width: 58, height: 58)
+            .frame(width: 46, height: 46)
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(contextWeightTitle(language: store.appLanguage))
-                    .font(.title2.weight(.semibold))
-                Text(contextWeightSubtitle(snapshot: snapshot, language: store.appLanguage))
-                    .font(.callout)
+                    .font(.title3.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.88)
+                Text(contextWeightBriefSubtitle(language: store.appLanguage))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(1)
             }
+            .layoutPriority(1)
 
-            Spacer(minLength: 14)
+            Spacer(minLength: 10)
 
             HStack(spacing: 8) {
                 ContextWeightMetric(
-                    title: contextWeightText("Top file", "最大文件", language: store.appLanguage),
+                    title: contextWeightText("Top", "最大", language: store.appLanguage),
                     value: contextWeightPercent(topShare),
                     systemImage: "chart.pie",
                     tint: .blue
@@ -295,7 +305,7 @@ private struct ContextWeightHero: View {
                 )
             }
         }
-        .padding(18)
+        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
@@ -314,23 +324,23 @@ private struct ContextWeightMetric: View {
     let tint: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 5) {
-                Image(systemName: systemImage)
-                    .foregroundStyle(tint)
-                Text(title)
-                    .foregroundStyle(.secondary)
-            }
-            .font(.caption2.weight(.medium))
-
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(tint)
+                .frame(width: 13)
+            Text(title)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
             Text(value)
-                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(.primary)
+                .lineLimit(1)
         }
-        .padding(.horizontal, 11)
-        .padding(.vertical, 9)
-        .frame(minWidth: 92, alignment: .leading)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
         .background(tint.opacity(0.09), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
@@ -347,10 +357,11 @@ private struct ContextWeightRankingList: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(contextWeightText("Largest files by application", "按应用查看最大文件", language: store.appLanguage))
                     .font(.headline)
-                Text(contextWeightText("each app is sorted by estimated token share", "每个应用内按估算 token 占比排序", language: store.appLanguage))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
                 Spacer()
+                Text(contextWeightText("\(sections.count) apps", "\(sections.count) 个应用", language: store.appLanguage))
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
             }
 
             if sections.isEmpty {
@@ -574,66 +585,70 @@ private struct ContextWeightDetailPanel: View {
                 let ownerShare = Double(item.tokenCount) / Double(max(1, ownerTokenCount))
                 let globalShare = Double(item.tokenCount) / Double(max(1, totalTokenCount))
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(item.asset.title)
-                        .font(.callout.weight(.semibold))
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    HStack(spacing: 8) {
-                        BadgeView(text: L10n.agentOwner(item.asset.owner, language: store.appLanguage), tint: ownerTint(item.asset.owner))
-                        BadgeView(text: L10n.assetKind(item.asset.kind, language: store.appLanguage), tint: contextWeightTint(for: item))
-                        BadgeView(text: contextWeightPercent(ownerShare), tint: .blue)
-                    }
-
-                    PathPreviewLink(
-                        path: item.asset.path,
-                        font: .caption.monospaced(),
-                        foregroundColor: .secondary,
-                        lineLimit: 2,
-                        language: store.appLanguage
-                    )
-
-                    Divider()
-
-                    ContextWeightDetailMetric(label: "Token", value: contextWeightCompactNumber(item.tokenCount))
-                    ContextWeightDetailMetric(
-                        label: contextWeightText("In app", "应用内占比", language: store.appLanguage),
-                        value: contextWeightPercent(ownerShare)
-                    )
-                    ContextWeightDetailMetric(
-                        label: contextWeightText("Global", "全局占比", language: store.appLanguage),
-                        value: contextWeightPercent(globalShare)
-                    )
-                    ContextWeightDetailMetric(
-                        label: contextWeightText("Placement", "位置", language: store.appLanguage),
-                        value: contextWeightPlacementText(item, language: store.appLanguage)
-                    )
-
-                    if !item.asset.summary.isEmpty {
-                        Divider()
-                        Text(item.asset.summary)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(item.asset.title)
+                            .font(.callout.weight(.semibold))
                             .fixedSize(horizontal: false, vertical: true)
-                    }
 
-                    if !item.asset.preview.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        HStack(spacing: 8) {
+                            BadgeView(text: L10n.agentOwner(item.asset.owner, language: store.appLanguage), tint: ownerTint(item.asset.owner))
+                            BadgeView(text: L10n.assetKind(item.asset.kind, language: store.appLanguage), tint: contextWeightTint(for: item))
+                            BadgeView(text: contextWeightPercent(ownerShare), tint: .blue)
+                        }
+
+                        PathPreviewLink(
+                            path: item.asset.path,
+                            font: .caption.monospaced(),
+                            foregroundColor: .secondary,
+                            lineLimit: 1,
+                            language: store.appLanguage
+                        )
+
                         Divider()
-                        Text(contextWeightPreview(item.asset.preview))
-                            .font(.caption.monospaced())
-                            .foregroundStyle(.secondary)
-                            .lineLimit(8)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
 
-                    Button {
-                        store.focusContextAsset(path: item.asset.path)
-                    } label: {
-                        Label(contextWeightText("Open asset detail", "打开资产详情", language: store.appLanguage), systemImage: "arrow.right.circle")
-                            .frame(maxWidth: .infinity)
+                        ContextWeightDetailMetric(label: "Token", value: contextWeightCompactNumber(item.tokenCount))
+                        ContextWeightDetailMetric(
+                            label: contextWeightText("In app", "应用内占比", language: store.appLanguage),
+                            value: contextWeightPercent(ownerShare)
+                        )
+                        ContextWeightDetailMetric(
+                            label: contextWeightText("Global", "全局占比", language: store.appLanguage),
+                            value: contextWeightPercent(globalShare)
+                        )
+                        ContextWeightDetailMetric(
+                            label: contextWeightText("Placement", "位置", language: store.appLanguage),
+                            value: contextWeightPlacementText(item, language: store.appLanguage)
+                        )
+
+                        if !item.asset.summary.isEmpty {
+                            Divider()
+                            Text(item.asset.summary)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        if !item.asset.preview.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Divider()
+                            Text(contextWeightPreview(item.asset.preview))
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
+                                .lineLimit(8)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Button {
+                            store.focusContextAsset(path: item.asset.path)
+                        } label: {
+                            Label(contextWeightText("Open asset detail", "打开资产详情", language: store.appLanguage), systemImage: "arrow.right.circle")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .padding(.trailing, 2)
                 }
             } else {
                 Text(contextWeightText(
@@ -646,6 +661,7 @@ private struct ContextWeightDetailPanel: View {
             }
         }
         .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -678,10 +694,13 @@ private struct ContextWeightActionStrip: View {
     let snapshot: ContextOverviewSnapshot
 
     var body: some View {
-        HStack(spacing: 10) {
+        LazyVGrid(columns: [
+            GridItem(.flexible(), spacing: 10),
+            GridItem(.flexible(), spacing: 10)
+        ], spacing: 10) {
             PromptStackActionButton(
-                title: contextWeightText("Open full prompt preview", "打开完整 Prompt 预览", language: store.appLanguage),
-                detail: contextWeightText("map, copy, zoom", "地图、复制、缩放", language: store.appLanguage),
+                title: contextWeightText("Prompt Preview", "Prompt 预览", language: store.appLanguage),
+                detail: contextWeightText("map / copy / zoom", "地图 / 复制 / 缩放", language: store.appLanguage),
                 systemImage: "doc.text.magnifyingglass",
                 tint: .blue
             ) {
@@ -689,7 +708,7 @@ private struct ContextWeightActionStrip: View {
             }
 
             PromptStackActionButton(
-                title: contextWeightText("Review one-sided memories", "检查单边记忆", language: store.appLanguage),
+                title: contextWeightText("One-sided Memory", "单边记忆", language: store.appLanguage),
                 detail: "\(snapshot.oneSidedMemoryCount)",
                 systemImage: "arrow.left.arrow.right",
                 tint: snapshot.oneSidedMemoryCount > 0 ? .orange : .green
@@ -698,7 +717,7 @@ private struct ContextWeightActionStrip: View {
             }
 
             PromptStackActionButton(
-                title: contextWeightText("User skill groups", "用户 Skill 组", language: store.appLanguage),
+                title: contextWeightText("User Skills", "用户 Skill", language: store.appLanguage),
                 detail: "\(snapshot.userCapabilityGroups)",
                 systemImage: "wand.and.stars",
                 tint: .teal
@@ -707,8 +726,8 @@ private struct ContextWeightActionStrip: View {
             }
 
             PromptStackActionButton(
-                title: contextWeightText("Export for LLM", "导出给 LLM", language: store.appLanguage),
-                detail: contextWeightText("Markdown handoff", "Markdown 交接包", language: store.appLanguage),
+                title: contextWeightText("LLM Export", "LLM 导出", language: store.appLanguage),
+                detail: "Markdown",
                 systemImage: "square.and.arrow.up",
                 tint: .purple
             ) {
@@ -1250,11 +1269,14 @@ private struct PromptStackActionButton: View {
                         .font(.callout.weight(.semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.86)
                     Text(detail)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.88)
                 }
+                .layoutPriority(1)
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
@@ -1934,6 +1956,14 @@ private func contextWeightSubtitle(snapshot: ContextOverviewSnapshot, language: 
     return contextWeightText(
         "Grouped by app, then ranked by estimated token share so oversized memories, skills, and registries surface first.",
         "先按应用分组，再按估算 token 占比排序。当前全局第一名：\(topTitle)",
+        language: language
+    )
+}
+
+private func contextWeightBriefSubtitle(language: AppLanguage) -> String {
+    contextWeightText(
+        "Largest prompt files, grouped by app.",
+        "按应用聚合最占 Prompt 的文件。",
         language: language
     )
 }
